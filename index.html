@@ -119,7 +119,7 @@ loader.load('./arcwave.fbx',async(model)=>{
     obj.castShadow=true;obj.receiveShadow=true;
     const old=obj.material;
     const mat=new THREE.MeshStandardMaterial({color:0xffffff,map:color||null,normalMap:normal||null,
-      roughnessMap:specular||null,metalness:.72,roughness:.34,metalness:specular?1:.72,envMapIntensity:Number(reflectionStrengthInput.value)});
+      metalness:.72,roughness:.42,envMapIntensity:Number(reflectionStrengthInput.value)});
     if(old && old.color && !color)mat.color.copy(old.color);
     mat.userData.originalMap=mat.map;mat.userData.originalNormal=mat.normalMap;mat.userData.originalRoughness=mat.roughnessMap;
     if(scroll){
