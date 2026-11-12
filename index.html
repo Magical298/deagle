@@ -121,14 +121,14 @@ loader.load('./arcwave.fbx',async(model)=>{
         shader.uniforms.arcScrollEnabled={value:scrollEnabledInput.checked?1:0};
         shader.vertexShader=shader.vertexShader.replace(
           '#include <common>',
-          '#include <common>\\nvarying vec3 vArcwaveWorldPosition;\\nvarying vec3 vArcwaveWorldNormal;'
+          '#include <common>\nvarying vec3 vArcwaveWorldPosition;\nvarying vec3 vArcwaveWorldNormal;'
         ).replace(
           '#include <worldpos_vertex>',
-          '#include <worldpos_vertex>\\nvArcwaveWorldPosition = (modelMatrix * vec4(transformed, 1.0)).xyz;\\nvArcwaveWorldNormal = normalize(mat3(modelMatrix) * objectNormal);'
+          '#include <worldpos_vertex>\nvArcwaveWorldPosition = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvArcwaveWorldNormal = normalize(mat3(modelMatrix) * objectNormal);'
         );
         shader.fragmentShader=shader.fragmentShader.replace(
           '#include <common>',
-          '#include <common>\\nuniform sampler2D arcScrollMap;\\nuniform float arcScrollTime;\\nuniform float arcScrollSpeed;\\nuniform float arcScrollScale;\\nuniform float arcScrollEnabled;\\nvarying vec3 vArcwaveWorldPosition;\\nvarying vec3 vArcwaveWorldNormal;'
+          '#include <common>\nuniform sampler2D arcScrollMap;\nuniform float arcScrollTime;\nuniform float arcScrollSpeed;\nuniform float arcScrollScale;\nuniform float arcScrollEnabled;\nvarying vec3 vArcwaveWorldPosition;\nvarying vec3 vArcwaveWorldNormal;'
         ).replace(
           '#include <map_fragment>',
           `#include <map_fragment>
