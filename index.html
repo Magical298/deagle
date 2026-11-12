@@ -38,8 +38,8 @@ h1{font-size:22px;margin:0 0 5px;letter-spacing:.04em}p{margin:0;color:#9fb4ce;f
   <label class="control"><span>Show textures</span><input id="textures" type="checkbox" checked></label>
   <label class="control"><span>Scrolling shader</span><input id="scrollEnabled" type="checkbox" checked></label>
   <label class="control"><span>Scroll speed</span><input id="scrollSpeed" type="range" min="0" max="3" step="0.1" value="0.8"></label>
-  <label class="control"><span>Scroll visibility</span><input id="scrollVisibility" type="range" min="0" max="1" step="0.05" value="0.35"></label>
-  <label class="control"><span>Scroll scale</span><input id="scrollScale" type="range" min="2" max="30" step="1" value="10"></label>
+  <label class="control"><span>Scroll visibility</span><input id="scrollVisibility" type="range" min="0" max="1" step="0.05" value="1"></label>
+  <label class="control"><span>Scroll scale</span><input id="scrollScale" type="range" min="1" max="30" step="1" value="4"></label>
   <label class="control"><span>Wireframe</span><input id="wireframe" type="checkbox"></label>
   <label class="control"><span>Show grid</span><input id="showGrid" type="checkbox" checked></label>
   <label class="control"><span>Auto-rotate</span><input id="autoRotate" type="checkbox"></label>
@@ -102,6 +102,9 @@ loader.load('./arcwave.fbx',async(model)=>{
   if(scroll){scroll.flipY=false;scroll.wrapS=THREE.RepeatWrapping;scroll.wrapT=THREE.RepeatWrapping;scroll.colorSpace=THREE.SRGBColorSpace;}
   loadedTextures={color,normal,specular,scroll};
   let vertexCount=0,faceCount=0,meshCount=0;
+  const modelBounds=new THREE.Box3().setFromObject(model);
+  const modelDimensions=modelBounds.getSize(new THREE.Vector3());
+  const maxModelDimension=Math.max(modelDimensions.x,modelDimensions.y,modelDimensions.z)||1;
   model.traverse(obj=>{
     if(!obj.isMesh)return;
     meshCount++;
@@ -120,6 +123,7 @@ loader.load('./arcwave.fbx',async(model)=>{
         shader.uniforms.arcScrollTime={value:0};
         shader.uniforms.arcScrollSpeed={value:Number(scrollSpeedInput.value)};
         shader.uniforms.arcScrollScale={value:Number(scrollScaleInput.value)};
+        shader.uniforms.arcScrollModelSize={value:maxModelDimension};
         shader.uniforms.arcScrollEnabled={value:scrollEnabledInput.checked?1:0};
         shader.uniforms.arcScrollVisibility={value:Number(scrollVisibilityInput.value)};
         shader.vertexShader=shader.vertexShader.replace(
@@ -131,7 +135,7 @@ loader.load('./arcwave.fbx',async(model)=>{
         );
         shader.fragmentShader=shader.fragmentShader.replace(
           '#include <common>',
-          '#include <common>\nuniform sampler2D arcScrollMap;\nuniform float arcScrollTime;\nuniform float arcScrollSpeed;\nuniform float arcScrollScale;\nuniform float arcScrollEnabled;\nuniform float arcScrollVisibility;\nvarying vec3 vArcwaveWorldPosition;\nvarying vec3 vArcwaveWorldNormal;'
+          '#include <common>\nuniform sampler2D arcScrollMap;\nuniform float arcScrollTime;\nuniform float arcScrollSpeed;\nuniform float arcScrollScale;\nuniform float arcScrollModelSize;\nuniform float arcScrollEnabled;\nuniform float arcScrollVisibility;\nvarying vec3 vArcwaveWorldPosition;\nvarying vec3 vArcwaveWorldNormal;'
         ).replace(
           '#include <map_fragment>',
           `#include <map_fragment>
@@ -139,7 +143,7 @@ loader.load('./arcwave.fbx',async(model)=>{
             vec3 arcN = normalize(vArcwaveWorldNormal);
             vec3 arcBlend = pow(max(abs(arcN) - vec3(0.2), vec3(0.0)), vec3(1.8));
             arcBlend /= max(arcBlend.x + arcBlend.y + arcBlend.z, 0.0001);
-            vec3 arcP = vArcwaveWorldPosition / max(arcScrollScale, 0.001);
+            vec3 arcP = vArcwaveWorldPosition / max(arcScrollModelSize, 0.001) * arcScrollScale;
             arcP.z += arcScrollTime * arcScrollSpeed;
             vec4 arcScroll = texture2D(arcScrollMap, arcP.yz) * arcBlend.x;
             arcScroll += texture2D(arcScrollMap, arcP.xz) * arcBlend.y;
