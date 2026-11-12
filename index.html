@@ -268,26 +268,39 @@ loader.load('./arcwave.fbx',async(model)=>{
     mat.customProgramCacheKey=()=> 'arcwave-cod4-triplanar-port-v1';
     obj.material=mat;
     modelMaterials.push(mat);
-    // Separate barycentric wireframe shader overlay; the weapon's original material stays intact.
-    let wireGeometry=geometry.index?geometry.toNonIndexed():geometry.clone();
-    const wirePositions=wireGeometry.attributes.position;
-    const barycentric=new Float32Array(wirePositions.count*3);
-    for(let i=0;i<wirePositions.count;i+=3){
-      barycentric.set([1,0,0],i*3);
-      barycentric.set([0,1,0],(i+1)*3);
-      barycentric.set([0,0,1],(i+2)*3);
-    }
-    wireGeometry.setAttribute('barycentric',new THREE.BufferAttribute(barycentric,3));
+    // Dedicated triangle-wireframe overlay. WireframeGeometry + LineSegments is
+    // more reliable across browsers than barycentric derivatives on a cloned mesh.
+    const wireGeometry=new THREE.WireframeGeometry(geometry);
     const wireMaterial=new THREE.ShaderMaterial({
-      uniforms:{uColor:{value:new THREE.Color(wireColorInput.value)},uThickness:{value:Number(wireThicknessInput.value)},uGlow:{value:Number(wireGlowInput.value)},uTime:{value:0}},
-      vertexShader:'attribute vec3 barycentric; varying vec3 vBarycentric; void main(){ vBarycentric=barycentric; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
-      fragmentShader:'uniform vec3 uColor; uniform float uThickness; uniform float uGlow; uniform float uTime; varying vec3 vBarycentric; void main(){ vec3 width=fwidth(vBarycentric)*uThickness; vec3 edge=smoothstep(vec3(0.0),width,vBarycentric); float line=1.0-min(min(edge.x,edge.y),edge.z); float pulse=0.82+0.18*sin(uTime*2.5); vec3 colour=uColor*(1.0+uGlow*pulse); gl_FragColor=vec4(colour,line); #include <tonemapping_fragment> #include <colorspace_fragment> }'.replace('#include <tonemapping_fragment>','').replace('#include <colorspace_fragment>',''),
-      transparent:true,depthWrite:false,depthTest:true,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1
+      uniforms:{
+        uColor:{value:new THREE.Color(wireColorInput.value)},
+        uThickness:{value:Number(wireThicknessInput.value)},
+        uGlow:{value:Number(wireGlowInput.value)},
+        uTime:{value:0}
+      },
+      vertexShader:`void main(){
+        gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);
+      }`,
+      fragmentShader:`uniform vec3 uColor;
+        uniform float uThickness;
+        uniform float uGlow;
+        uniform float uTime;
+        void main(){
+          float pulse=0.82+0.18*sin(uTime*2.5);
+          float intensity=1.0+uGlow*pulse;
+          float lineAlpha=clamp(0.72+uThickness*0.08,0.0,1.0);
+          gl_FragColor=vec4(uColor*intensity,lineAlpha);
+        }`,
+      transparent:true,
+      depthWrite:false,
+      depthTest:false,
+      blending:THREE.AdditiveBlending,
+      toneMapped:false
     });
-    const wireOverlay=new THREE.Mesh(wireGeometry,wireMaterial);
+    const wireOverlay=new THREE.LineSegments(wireGeometry,wireMaterial);
     wireOverlay.name='Arcwave wireframe shader overlay';
     wireOverlay.visible=wireframeToggle.checked;
-    wireOverlay.renderOrder=5;
+    wireOverlay.renderOrder=10;
     wireOverlay.frustumCulled=false;
     obj.add(wireOverlay);
     wireframeOverlays.push(wireOverlay);
