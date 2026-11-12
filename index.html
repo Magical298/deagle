@@ -51,7 +51,10 @@ h1{font-size:22px;margin:0 0 5px;letter-spacing:.04em}p{margin:0;color:#9fb4ce;f
   <label class="control"><span>Scroll visibility</span><input id="scrollVisibility" type="range" min="0" max="1" step="0.05" value="1"></label>
   <label class="control"><span>Texture tiling</span><input id="scrollScale" type="range" min="1" max="30" step="1" value="4"></label>
   <button id="resetShaderSettings" type="button">Reset shader settings</button>
-  <label class="control"><span>Wireframe</span><input id="wireframe" type="checkbox"></label>
+  <label class="control"><span>Wireframe shader</span><input id="wireframe" type="checkbox"></label>
+  <label class="control"><span>Wireframe colour</span><select id="wireColor"><option value="#35c8ff">Arcwave blue</option><option value="#ffffff">White</option><option value="#00ff9c">Neon green</option><option value="#ffb347">Amber</option><option value="#ff3b81">Pink</option></select></label>
+  <label class="control"><span>Line thickness</span><input id="wireThickness" type="range" min="0.5" max="3" step="0.1" value="1.2"></label>
+  <label class="control"><span>Line glow</span><input id="wireGlow" type="range" min="0" max="4" step="0.1" value="1.8"></label>
   <label class="control"><span>Show grid</span><input id="showGrid" type="checkbox" checked></label>
   <label class="control"><span>Auto-rotate</span><input id="autoRotate" type="checkbox"></label>
   <label class="control"><span>Background</span><select id="background"><option value="07111f">Navy</option><option value="000000">Black</option><option value="30343b">Grey</option><option value="d9e1ea">Light</option></select></label>
@@ -124,10 +127,13 @@ const presetSelect=document.getElementById('presetSelect');
 const presetNameInput=document.getElementById('presetName');
 const textureToggle=document.getElementById('textures');
 const wireframeToggle=document.getElementById('wireframe');
+const wireColorInput=document.getElementById('wireColor');
+const wireThicknessInput=document.getElementById('wireThickness');
+const wireGlowInput=document.getElementById('wireGlow');
 const gridToggle=document.getElementById('showGrid');
 const rotateToggle=document.getElementById('autoRotate');
 const backgroundSelect=document.getElementById('background');
-let modelRoot=null, modelMaterials=[], defaultCameraPosition=null, scrollShaders=[], loadedTextures={color:null};
+let modelRoot=null, modelMaterials=[], defaultCameraPosition=null, scrollShaders=[], wireframeOverlays=[], loadedTextures={color:null};
 const pulseEnabledInput=document.getElementById('pulseEnabled');
 const pulseStrengthInput=document.getElementById('pulseStrength');
 const scrollEnabledInput=document.getElementById('scrollEnabled');
@@ -258,6 +264,29 @@ loader.load('./arcwave.fbx',async(model)=>{
     mat.customProgramCacheKey=()=> 'arcwave-cod4-triplanar-port-v1';
     obj.material=mat;
     modelMaterials.push(mat);
+    // Separate barycentric wireframe shader overlay; the weapon's original material stays intact.
+    let wireGeometry=geometry.index?geometry.toNonIndexed():geometry.clone();
+    const wirePositions=wireGeometry.attributes.position;
+    const barycentric=new Float32Array(wirePositions.count*3);
+    for(let i=0;i<wirePositions.count;i+=3){
+      barycentric.set([1,0,0],i*3);
+      barycentric.set([0,1,0],(i+1)*3);
+      barycentric.set([0,0,1],(i+2)*3);
+    }
+    wireGeometry.setAttribute('barycentric',new THREE.BufferAttribute(barycentric,3));
+    const wireMaterial=new THREE.ShaderMaterial({
+      uniforms:{uColor:{value:new THREE.Color(wireColorInput.value)},uThickness:{value:Number(wireThicknessInput.value)},uGlow:{value:Number(wireGlowInput.value)},uTime:{value:0}},
+      vertexShader:'attribute vec3 barycentric; varying vec3 vBarycentric; void main(){ vBarycentric=barycentric; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+      fragmentShader:'uniform vec3 uColor; uniform float uThickness; uniform float uGlow; uniform float uTime; varying vec3 vBarycentric; void main(){ vec3 width=fwidth(vBarycentric)*uThickness; vec3 edge=smoothstep(vec3(0.0),width,vBarycentric); float line=1.0-min(min(edge.x,edge.y),edge.z); float pulse=0.82+0.18*sin(uTime*2.5); vec3 colour=uColor*(1.0+uGlow*pulse); gl_FragColor=vec4(colour,line); #include <tonemapping_fragment> #include <colorspace_fragment> }'.replace('#include <tonemapping_fragment>','').replace('#include <colorspace_fragment>',''),
+      transparent:true,depthWrite:false,depthTest:true,side:THREE.DoubleSide,blending:THREE.AdditiveBlending,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1
+    });
+    const wireOverlay=new THREE.Mesh(wireGeometry,wireMaterial);
+    wireOverlay.name='Arcwave wireframe shader overlay';
+    wireOverlay.visible=wireframeToggle.checked;
+    wireOverlay.renderOrder=5;
+    wireOverlay.frustumCulled=false;
+    obj.add(wireOverlay);
+    wireframeOverlays.push(wireOverlay);
   });
   const box=new THREE.Box3().setFromObject(model), size=box.getSize(new THREE.Vector3()), center=box.getCenter(new THREE.Vector3());
   model.position.sub(center);scene.add(model);modelRoot=model;
@@ -360,13 +389,18 @@ document.getElementById('resetDefaults').addEventListener('click',()=>{
   textureViewSelect.value='material';
   applyTextureInspection();
   wireframeToggle.checked=false;
-  for(const mat of modelMaterials)mat.wireframe=false;
+  updateWireframeSettings();
+  wireThicknessInput.value="1.2";wireGlowInput.value="1.8";wireColorInput.value="#35c8ff";
   gridToggle.checked=true;grid.visible=true;floor.visible=true;
   rotateToggle.checked=false;controls.autoRotate=false;
   status.textContent='Default Arcwave settings restored.';
 });
 
-wireframeToggle.addEventListener('change',()=>{for(const mat of modelMaterials)mat.wireframe=wireframeToggle.checked;});
+function updateWireframeSettings(){const colour=new THREE.Color(wireColorInput.value);for(const overlay of wireframeOverlays){overlay.visible=wireframeToggle.checked;overlay.material.uniforms.uColor.value.copy(colour);overlay.material.uniforms.uThickness.value=Number(wireThicknessInput.value);overlay.material.uniforms.uGlow.value=Number(wireGlowInput.value);}}
+wireframeToggle.addEventListener('change',updateWireframeSettings);
+wireColorInput.addEventListener('change',updateWireframeSettings);
+wireThicknessInput.addEventListener('input',updateWireframeSettings);
+wireGlowInput.addEventListener('input',updateWireframeSettings);
 gridToggle.addEventListener('change',()=>{grid.visible=gridToggle.checked;floor.visible=gridToggle.checked;});
 rotateToggle.addEventListener('change',()=>{controls.autoRotate=rotateToggle.checked;});
 backgroundSelect.addEventListener('change',()=>{const c=new THREE.Color('#'+backgroundSelect.value);scene.background=c;});
@@ -406,6 +440,6 @@ document.getElementById('resetView').addEventListener('click',()=>{
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 const scrollClock=new THREE.Clock();
 let scrollElapsed=0;
-function animate(){requestAnimationFrame(animate);const delta=scrollClock.getDelta();if(!scrollPausedInput.checked)scrollElapsed+=delta;for(const shader of scrollShaders)shader.uniforms.arcScrollTime.value=scrollElapsed;controls.update();renderer.render(scene,camera);}animate();
+function animate(){requestAnimationFrame(animate);const delta=scrollClock.getDelta();if(!scrollPausedInput.checked)scrollElapsed+=delta;for(const shader of scrollShaders)shader.uniforms.arcScrollTime.value=scrollElapsed;for(const overlay of wireframeOverlays)overlay.material.uniforms.uTime.value=scrollElapsed;controls.update();renderer.render(scene,camera);}animate();
 </script>
 </body></html>
