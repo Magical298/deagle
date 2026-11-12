@@ -193,8 +193,7 @@ loader.load('./arcwave.fbx',async(model)=>{
             vec4 arcSample = arcBlend.x * texture2D(arcScrollMap, arcCoords.yz);
             arcSample += arcBlend.y * texture2D(arcScrollMap, arcCoords.xz);
             arcSample += arcBlend.z * texture2D(arcScrollMap, arcCoords.xy);
-            float arcBaseAlpha = arcShowBaseTexture > 0.5 ? diffuseColor.a : 0.0;
-            vec3 arcBaseBlend = mix(arcSample.rgb, diffuseColor.rgb, arcBaseAlpha);
+            vec3 arcBaseBlend = mix(arcSample.rgb, diffuseColor.rgb, diffuseColor.a);
             diffuseColor.rgb = mix(diffuseColor.rgb, arcBaseBlend, arcScrollVisibility);
           }`
         ).replace(
