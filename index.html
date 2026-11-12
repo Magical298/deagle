@@ -40,7 +40,9 @@ h1{font-size:22px;margin:0 0 5px;letter-spacing:.04em}p{margin:0;color:#9fb4ce;f
   <label class="control"><span>Roughness</span><input id="roughness" type="range" min="0.05" max="1" step="0.01" value="0.32"></label>
   <label class="control"><span>Show textures</span><input id="textures" type="checkbox" checked></label>
   <label class="control"><span>Scrolling shader</span><input id="scrollEnabled" type="checkbox" checked></label>
-  <label class="control"><span>Scroll direction</span><select id="scrollDirection"><option value="0">Horizontal</option><option value="1">Vertical</option><option value="2">Both</option></select></label>
+  <label class="control"><span>Scroll direction</span><select id="scrollDirection"><option value="0">Original (Z axis)</option><option value="1">X axis</option><option value="2">Y axis</option><option value="3">All axes</option></select></label>
+  <label class="control"><span>Blue energy pulse</span><input id="pulseEnabled" type="checkbox" checked></label>
+  <label class="control"><span>Pulse strength</span><input id="pulseStrength" type="range" min="0" max="1" step="0.05" value="0.35"></label>
   <label class="control"><span>Reverse direction</span><input id="scrollReverse" type="checkbox"></label>
   <label class="control"><span>Pause scrolling</span><input id="scrollPaused" type="checkbox"></label>
   <label class="control"><span>Scroll speed</span><input id="scrollSpeed" type="range" min="0" max="3" step="0.1" value="0.8"></label>
@@ -93,6 +95,8 @@ const gridToggle=document.getElementById('showGrid');
 const rotateToggle=document.getElementById('autoRotate');
 const backgroundSelect=document.getElementById('background');
 let modelRoot=null, modelMaterials=[], defaultCameraPosition=null, scrollShaders=[], loadedTextures={color:null,normal:null,specular:null,scroll:null};
+const pulseEnabledInput=document.getElementById('pulseEnabled');
+const pulseStrengthInput=document.getElementById('pulseStrength');
 const scrollEnabledInput=document.getElementById('scrollEnabled');
 const scrollSpeedInput=document.getElementById('scrollSpeed');
 const scrollScaleInput=document.getElementById('scrollScale');
@@ -154,37 +158,55 @@ loader.load('./arcwave.fbx',async(model)=>{
         shader.uniforms.arcScrollReverse={value:scrollReverseInput.checked?1:0};
         shader.uniforms.arcScrollEnabled={value:scrollEnabledInput.checked?1:0};
         shader.uniforms.arcScrollVisibility={value:Number(scrollVisibilityInput.value)};
+        shader.uniforms.arcPulseEnabled={value:pulseEnabledInput.checked?1:0};
+        shader.uniforms.arcPulseStrength={value:Number(pulseStrengthInput.value)};
         shader.vertexShader=shader.vertexShader.replace(
           '#include <common>',
-          '#include <common>\nvarying vec2 vArcwaveUv;'
+          '#include <common>\\nvarying vec3 vArcwaveLocalPosition;\\nvarying vec3 vArcwaveLocalNormal;'
         ).replace(
-          '#include <uv_vertex>',
-          '#include <uv_vertex>\nvArcwaveUv = uv;'
+          '#include <begin_vertex>',
+          '#include <begin_vertex>\\nvArcwaveLocalPosition = position;\\nvArcwaveLocalNormal = normal;'
         );
         shader.fragmentShader=shader.fragmentShader.replace(
           '#include <common>',
-          '#include <common>\nuniform sampler2D arcScrollMap;\nuniform float arcScrollTime;\nuniform float arcScrollSpeed;\nuniform float arcScrollScale;\nuniform float arcScrollDirection;\nuniform float arcScrollReverse;\nuniform float arcScrollEnabled;\nuniform float arcScrollVisibility;\nvarying vec2 vArcwaveUv;'
+          '#include <common>\\nuniform sampler2D arcScrollMap;\\nuniform float arcScrollTime;\\nuniform float arcScrollSpeed;\\nuniform float arcScrollScale;\\nuniform float arcScrollDirection;\\nuniform float arcScrollReverse;\\nuniform float arcScrollEnabled;\\nuniform float arcScrollVisibility;\\nuniform float arcPulseEnabled;\\nuniform float arcPulseStrength;\\nvarying vec3 vArcwaveLocalPosition;\\nvarying vec3 vArcwaveLocalNormal;'
         ).replace(
           '#include <map_fragment>',
           `#include <map_fragment>
+          // Arcwave's original shader uses triplanar world/object-axis projection.
           if (arcScrollEnabled > 0.5) {
-            // Horizontal reproduces the original COD4 HLSL; vertical and both are preview options.
-            vec2 arcUv = vArcwaveUv * arcScrollScale;
+            vec3 arcNormal = normalize(vArcwaveLocalNormal);
+            vec3 arcBlend = pow(max(abs(arcNormal) - vec3(0.2), vec3(0.0)), vec3(1.8));
+            arcBlend /= max(arcBlend.x + arcBlend.y + arcBlend.z, 0.00001);
+            vec3 arcPosition = vArcwaveLocalPosition;
             float arcTravel = arcScrollTime * arcScrollSpeed * mix(1.0, -1.0, arcScrollReverse);
             if (arcScrollDirection < 0.5) {
-              arcUv.x += arcTravel;
+              arcPosition.z += arcTravel;
             } else if (arcScrollDirection < 1.5) {
-              arcUv.y += arcTravel;
+              arcPosition.x += arcTravel;
+            } else if (arcScrollDirection < 2.5) {
+              arcPosition.y += arcTravel;
             } else {
-              arcUv += vec2(arcTravel, arcTravel);
+              arcPosition += vec3(arcTravel);
             }
-            vec4 arcScroll = texture2D(arcScrollMap, arcUv);
-            diffuseColor.rgb = mix(diffuseColor.rgb, arcScroll.rgb, arcScrollVisibility);
+            vec3 arcCoords = arcPosition * (0.1 * arcScrollScale / 4.0);
+            vec4 arcSample = arcBlend.x * texture2D(arcScrollMap, arcCoords.yz);
+            arcSample += arcBlend.y * texture2D(arcScrollMap, arcCoords.xz);
+            arcSample += arcBlend.z * texture2D(arcScrollMap, arcCoords.xy);
+            vec3 arcBaseBlend = mix(arcSample.rgb, diffuseColor.rgb, diffuseColor.a);
+            diffuseColor.rgb = mix(diffuseColor.rgb, arcBaseBlend, arcScrollVisibility);
+          }`
+        ).replace(
+          '#include <output_fragment>',
+          `#include <output_fragment>
+          if (arcPulseEnabled > 0.5) {
+            float arcEnergyPulse = 0.5 + 0.5 * sin(arcScrollTime * 4.0);
+            gl_FragColor.rgb += vec3(0.0, 0.15, 0.8) * arcEnergyPulse * arcPulseStrength;
           }`
         );
         scrollShaders.push(shader);
       };
-      mat.customProgramCacheKey=()=> 'arcwave-cod4-uv-scroll-v1';
+      mat.customProgramCacheKey=()=> 'arcwave-cod4-triplanar-energy-v2';
     }
     obj.material=mat;
     modelMaterials.push(mat);
@@ -208,21 +230,23 @@ brightnessInput.addEventListener('input',applyBrightness);
 reflectionStrengthInput.addEventListener('input',()=>{for(const mat of modelMaterials)mat.envMapIntensity=Number(reflectionStrengthInput.value);});
 metalnessInput.addEventListener('input',()=>{for(const mat of modelMaterials)mat.metalness=Number(metalnessInput.value);});
 roughnessInput.addEventListener('input',()=>{for(const mat of modelMaterials)mat.roughness=Number(roughnessInput.value);});
-function updateScrollSettings(){for(const shader of scrollShaders){shader.uniforms.arcScrollSpeed.value=Number(scrollSpeedInput.value);shader.uniforms.arcScrollScale.value=Number(scrollScaleInput.value);shader.uniforms.arcScrollDirection.value=Number(scrollDirectionInput.value);shader.uniforms.arcScrollReverse.value=scrollReverseInput.checked?1:0;shader.uniforms.arcScrollEnabled.value=scrollEnabledInput.checked?1:0;shader.uniforms.arcScrollVisibility.value=Number(scrollVisibilityInput.value);}}
+function updateScrollSettings(){for(const shader of scrollShaders){shader.uniforms.arcScrollSpeed.value=Number(scrollSpeedInput.value);shader.uniforms.arcScrollScale.value=Number(scrollScaleInput.value);shader.uniforms.arcScrollDirection.value=Number(scrollDirectionInput.value);shader.uniforms.arcScrollReverse.value=scrollReverseInput.checked?1:0;shader.uniforms.arcScrollEnabled.value=scrollEnabledInput.checked?1:0;shader.uniforms.arcScrollVisibility.value=Number(scrollVisibilityInput.value);shader.uniforms.arcPulseEnabled.value=pulseEnabledInput.checked?1:0;shader.uniforms.arcPulseStrength.value=Number(pulseStrengthInput.value);}}
 scrollEnabledInput.addEventListener('change',updateScrollSettings);
 scrollSpeedInput.addEventListener('input',updateScrollSettings);
 scrollScaleInput.addEventListener('input',updateScrollSettings);
 scrollVisibilityInput.addEventListener('input',updateScrollSettings);
 scrollDirectionInput.addEventListener('change',updateScrollSettings);
 scrollReverseInput.addEventListener('change',updateScrollSettings);
+pulseEnabledInput.addEventListener('change',updateScrollSettings);
+pulseStrengthInput.addEventListener('input',updateScrollSettings);
 document.getElementById('resetShaderSettings').addEventListener('click',()=>{
-  scrollEnabledInput.checked=true;scrollDirectionInput.value='0';scrollReverseInput.checked=false;scrollPausedInput.checked=false;
+  scrollEnabledInput.checked=true;scrollDirectionInput.value='0';scrollReverseInput.checked=false;scrollPausedInput.checked=false;pulseEnabledInput.checked=true;pulseStrengthInput.value='0.35';
   scrollSpeedInput.value='0.8';scrollVisibilityInput.value='1';scrollScaleInput.value='4';
   scrollElapsed=0;updateScrollSettings();status.textContent='Shader settings reset to defaults.';
 });
 
 const PRESET_STORAGE_KEY='arcwaveMaterialPresets';
-const presetFields=['brightness','reflectionStrength','metalness','roughness','scrollEnabled','scrollDirection','scrollReverse','scrollPaused','scrollSpeed','scrollVisibility','scrollScale','lighting','background'];
+const presetFields=['brightness','reflectionStrength','metalness','roughness','scrollEnabled','scrollDirection','scrollReverse','scrollPaused','scrollSpeed','scrollVisibility','scrollScale','pulseEnabled','pulseStrength','lighting','background'];
 function readPresets(){
   try{return JSON.parse(localStorage.getItem(PRESET_STORAGE_KEY)||'{}')||{};}
   catch(error){console.warn('Could not read saved presets',error);return {};}
@@ -279,7 +303,7 @@ refreshPresetList();
 document.getElementById('resetDefaults').addEventListener('click',()=>{
   const defaults={
     brightness:'1.2',reflectionStrength:'1.2',metalness:'0.85',roughness:'0.32',
-    scrollEnabled:true,scrollDirection:'0',scrollReverse:false,scrollPaused:false,scrollSpeed:'0.8',scrollVisibility:'1',scrollScale:'4',
+    scrollEnabled:true,scrollDirection:'0',scrollReverse:false,scrollPaused:false,scrollSpeed:'0.8',scrollVisibility:'1',scrollScale:'4',pulseEnabled:true,pulseStrength:'0.35',
     lighting:'studio',background:'07111f'
   };
   applyPreset(defaults);
