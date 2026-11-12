@@ -19,6 +19,9 @@ h1{font-size:22px;margin:0 0 5px;letter-spacing:.04em}p{margin:0;color:#9fb4ce;f
 #panel button{width:100%;margin-top:8px;padding:9px;background:#173b60;color:#eaf3ff;border:1px solid #37658f;border-radius:7px;cursor:pointer}
 #panel button:hover{background:#20517f}
 #brightnessValue{font-variant-numeric:tabular-nums;color:#8fcaff;min-width:28px;text-align:right}
+#modelInfo{font-size:11px;line-height:1.55;color:#9fb4ce;margin-top:12px;border-top:1px solid #29415e;padding-top:10px}
+#panel select{max-width:125px}
+#zoomButtons{display:flex;gap:7px}#zoomButtons button{width:50%}
 @media(max-width:650px){header{top:12px;left:14px}h1{font-size:17px}#panel{top:76px;right:10px;width:210px;padding:12px}#help{display:none}#status{left:14px;bottom:12px}}
 </style>
 <script type="importmap">
@@ -37,7 +40,13 @@ h1{font-size:22px;margin:0 0 5px;letter-spacing:.04em}p{margin:0;color:#9fb4ce;f
   <label class="control"><span>Show grid</span><input id="showGrid" type="checkbox" checked></label>
   <label class="control"><span>Auto-rotate</span><input id="autoRotate" type="checkbox"></label>
   <label class="control"><span>Background</span><select id="background"><option value="07111f">Navy</option><option value="000000">Black</option><option value="30343b">Grey</option><option value="d9e1ea">Light</option></select></label>
+  <label class="control"><span>Lighting</span><select id="lighting"><option value="studio">Studio</option><option value="bright">Bright</option><option value="soft">Soft</option><option value="dramatic">Dramatic</option></select></label>
+  <label class="control"><span>Texture inspection</span><select id="textureView"><option value="material">Normal material</option><option value="color">Colour map</option><option value="normal">Normal map</option><option value="specular">Specular map</option></select></label>
+  <div class="control"><span>Zoom</span><span id="zoomButtons"><button id="zoomIn" type="button">+</button><button id="zoomOut" type="button">−</button></span></div>
   <button id="resetView" type="button">Reset camera view</button>
+  <button id="screenshot" type="button">Save screenshot</button>
+  <button id="fullscreen" type="button">Fullscreen</button>
+  <div id="modelInfo">Model information<br>Waiting for model…</div>
 </aside>
 
 <script type="module">
@@ -49,12 +58,15 @@ import { DDSLoader } from 'three/addons/loaders/DDSLoader.js';
 const host=document.getElementById('view'), status=document.getElementById('status');
 const brightnessInput=document.getElementById('brightness');
 const brightnessValue=document.getElementById('brightnessValue');
+const lightingSelect=document.getElementById('lighting');
+const textureViewSelect=document.getElementById('textureView');
+const modelInfo=document.getElementById('modelInfo');
 const textureToggle=document.getElementById('textures');
 const wireframeToggle=document.getElementById('wireframe');
 const gridToggle=document.getElementById('showGrid');
 const rotateToggle=document.getElementById('autoRotate');
 const backgroundSelect=document.getElementById('background');
-let modelRoot=null, modelMaterials=[], defaultCameraPosition=null;
+let modelRoot=null, modelMaterials=[], defaultCameraPosition=null, loadedTextures={color:null,normal:null,specular:null};
 const scene=new THREE.Scene(); scene.background=new THREE.Color(0x07111f);
 const camera=new THREE.PerspectiveCamera(40,innerWidth/innerHeight,.1,1000);
 camera.position.set(4,3,6);
@@ -79,8 +91,14 @@ loader.load('./arcwave.fbx',async(model)=>{
   const [color,normal,specular]=await Promise.all(textureFiles.map(loadTexture));
   if(color){color.colorSpace=THREE.SRGBColorSpace;color.flipY=false;}
   if(normal)normal.flipY=false;if(specular)specular.flipY=false;
+  loadedTextures={color,normal,specular};
+  let vertexCount=0,faceCount=0,meshCount=0;
   model.traverse(obj=>{
     if(!obj.isMesh)return;
+    meshCount++;
+    const geometry=obj.geometry;
+    if(geometry.attributes.position)vertexCount+=geometry.attributes.position.count;
+    faceCount+=geometry.index?geometry.index.count/3:(geometry.attributes.position?geometry.attributes.position.count/3:0);
     obj.castShadow=true;obj.receiveShadow=true;
     const old=obj.material;
     const mat=new THREE.MeshStandardMaterial({color:0xffffff,map:color||null,normalMap:normal||null,
@@ -96,6 +114,7 @@ loader.load('./arcwave.fbx',async(model)=>{
   camera.position.set(maxDim*1.5,maxDim*.9,maxDim*1.8);camera.near=maxDim/100;camera.far=maxDim*100;camera.updateProjectionMatrix();
   defaultCameraPosition=camera.position.clone();
   controls.target.set(0,0,0);controls.update();
+  modelInfo.innerHTML='Meshes: '+meshCount+'<br>Vertices: '+vertexCount.toLocaleString()+'<br>Triangles: '+Math.floor(faceCount).toLocaleString()+'<br>Size: '+size.x.toFixed(3)+' × '+size.y.toFixed(3)+' × '+size.z.toFixed(3)+' units';
   status.textContent='Model loaded · textures '+(color?'loaded':'not found');
 },undefined,error=>{console.error(error);status.textContent='Could not load arcwave.fbx — check the file name and GitHub Pages deployment.';});
 function applyBrightness(){
@@ -105,13 +124,39 @@ function applyBrightness(){
   hemi.intensity=2*value;key.intensity=3*value;rim.intensity=2.5*value;
 }
 brightnessInput.addEventListener('input',applyBrightness);
-textureToggle.addEventListener('change',()=>{
-  for(const mat of modelMaterials){mat.map=textureToggle.checked?mat.userData.originalMap:null;mat.normalMap=textureToggle.checked?mat.userData.originalNormal:null;mat.roughnessMap=textureToggle.checked?mat.userData.originalRoughness:null;mat.needsUpdate=true;}
-});
+
 wireframeToggle.addEventListener('change',()=>{for(const mat of modelMaterials)mat.wireframe=wireframeToggle.checked;});
 gridToggle.addEventListener('change',()=>{grid.visible=gridToggle.checked;floor.visible=gridToggle.checked;});
 rotateToggle.addEventListener('change',()=>{controls.autoRotate=rotateToggle.checked;});
 backgroundSelect.addEventListener('change',()=>{const c=new THREE.Color('#'+backgroundSelect.value);scene.background=c;});
+function applyTextureInspection(){
+  const mode=textureViewSelect.value;
+  for(const mat of modelMaterials){
+    mat.map=mode==='material'?mat.userData.originalMap:(loadedTextures[mode]||null);
+    mat.normalMap=mode==='material'?mat.userData.originalNormal:null;
+    mat.roughnessMap=mode==='material'?mat.userData.originalRoughness:null;
+    mat.needsUpdate=true;
+  }
+}
+textureViewSelect.addEventListener('change',applyTextureInspection);
+textureToggle.addEventListener('change',()=>{
+  if(!textureToggle.checked)textureViewSelect.value='material';
+  applyTextureInspection();
+});
+lightingSelect.addEventListener('change',()=>{
+  const presets={studio:[2,3,2.5,1.15],bright:[3.2,4.5,1.4,1.35],soft:[2.8,1.8,.7,1.05],dramatic:[.8,4.2,3.8,1.1]};
+  const p=presets[lightingSelect.value],b=Number(brightnessInput.value);
+  hemi.intensity=p[0]*b;key.intensity=p[1]*b;rim.intensity=p[2]*b;renderer.toneMappingExposure=p[3]*b;
+});
+document.getElementById('zoomIn').addEventListener('click',()=>camera.position.multiplyScalar(.8));
+document.getElementById('zoomOut').addEventListener('click',()=>camera.position.multiplyScalar(1.25));
+document.getElementById('screenshot').addEventListener('click',()=>{
+  renderer.render(scene,camera);
+  const link=document.createElement('a');link.download='arcwave-preview.png';link.href=renderer.domElement.toDataURL('image/png');link.click();
+});
+document.getElementById('fullscreen').addEventListener('click',()=>{
+  if(!document.fullscreenElement)document.documentElement.requestFullscreen?.();else document.exitFullscreen?.();
+});
 document.getElementById('resetView').addEventListener('click',()=>{
   if(defaultCameraPosition)camera.position.copy(defaultCameraPosition);
   controls.target.set(0,0,0);controls.update();
