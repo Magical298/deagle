@@ -54,7 +54,7 @@ h1{font-size:22px;margin:0 0 5px;letter-spacing:.04em}p{margin:0;color:#9fb4ce;f
   <label class="control"><span>Auto-rotate</span><input id="autoRotate" type="checkbox"></label>
   <label class="control"><span>Background</span><select id="background"><option value="07111f">Navy</option><option value="000000">Black</option><option value="30343b">Grey</option><option value="d9e1ea">Light</option></select></label>
   <label class="control"><span>Lighting</span><select id="lighting"><option value="studio">Studio</option><option value="bright">Bright</option><option value="soft">Soft</option><option value="dramatic">Dramatic</option></select></label>
-  <label class="control"><span>Texture inspection</span><select id="textureView"><option value="material">Normal material</option><option value="color">Colour map</option><option value="normal">Normal map</option><option value="specular">Specular map</option></select></label>
+  <label class="control"><span>Texture inspection</span><select id="textureView"><option value="material">Normal material</option><option value="color">Colour map</option></select></label>
   <div style="border-top:1px solid #29415e;margin-top:14px;padding-top:12px">
     <h2 style="margin-bottom:8px">Material presets</h2>
     <label class="control"><span>Saved presets</span><select id="presetSelect"><option value="">Select a preset</option></select></label>
@@ -94,7 +94,7 @@ const wireframeToggle=document.getElementById('wireframe');
 const gridToggle=document.getElementById('showGrid');
 const rotateToggle=document.getElementById('autoRotate');
 const backgroundSelect=document.getElementById('background');
-let modelRoot=null, modelMaterials=[], defaultCameraPosition=null, scrollShaders=[], loadedTextures={color:null,normal:null,specular:null,scroll:null};
+let modelRoot=null, modelMaterials=[], defaultCameraPosition=null, scrollShaders=[], loadedTextures={color:null};
 const pulseEnabledInput=document.getElementById('pulseEnabled');
 const pulseStrengthInput=document.getElementById('pulseStrength');
 const scrollEnabledInput=document.getElementById('scrollEnabled');
@@ -123,11 +123,11 @@ const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamp
 controls.target.set(0,0,0);
 
 const dds=new DDSLoader();
-const textureFiles=['deagle_arcwave_color.dds','deagle_arcwave_normal.dds','deagle_arcwave_specular.dds'];
+const textureFiles=['deagle_arcwave_color.dds'];
 const loadTexture=(file)=>new Promise((resolve)=>dds.load('./'+file,resolve,undefined,()=>resolve(null)));
 const loader=new FBXLoader();
 loader.load('./arcwave.fbx',async(model)=>{
-  const [color,normal,specular]=await Promise.all(textureFiles.map(loadTexture));
+  const [color]=await Promise.all(textureFiles.map(loadTexture));
   if(color){color.colorSpace=THREE.SRGBColorSpace;color.flipY=false;}
   if(normal)normal.flipY=false;if(specular)specular.flipY=false;
    mat.onBeforeCompile=(shader)=>{
