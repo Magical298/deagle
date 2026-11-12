@@ -11,14 +11,15 @@ h1{font-size:22px;margin:0 0 5px;letter-spacing:.04em}p{margin:0;color:#9fb4ce;f
 #status{position:fixed;z-index:2;bottom:20px;left:24px;color:#9fb4ce;font-size:12px}
 #help{position:fixed;z-index:2;bottom:20px;right:24px;color:#9fb4ce;font-size:12px;text-align:right}
 </style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}
+</script>
 </head>
 <body>
 <div id="view"></div>
 <header><h1>ARCWAVE · DESERT EAGLE</h1><p>3D asset preview · drag to rotate · scroll to zoom</p></header>
 <div id="status">Loading model…</div><div id="help">Left drag: rotate<br>Scroll: zoom<br>Right drag: pan</div>
-<script type="importmap">
-{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}
-</script>
+
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
