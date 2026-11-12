@@ -16,11 +16,14 @@ h1{font-size:22px;margin:0 0 5px;letter-spacing:.04em}p{margin:0;color:#9fb4ce;f
 <div id="view"></div>
 <header><h1>ARCWAVE · DESERT EAGLE</h1><p>3D asset preview · drag to rotate · scroll to zoom</p></header>
 <div id="status">Loading model…</div><div id="help">Left drag: rotate<br>Scroll: zoom<br>Right drag: pan</div>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}
+</script>
 <script type="module">
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js';
-import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/controls/OrbitControls.js';
-import { FBXLoader } from 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/FBXLoader.js';
-import { DDSLoader } from 'https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/DDSLoader.js';
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { DDSLoader } from 'three/addons/loaders/DDSLoader.js';
 
 const host=document.getElementById('view'), status=document.getElementById('status');
 const scene=new THREE.Scene(); scene.background=new THREE.Color(0x07111f);
