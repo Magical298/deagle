@@ -197,16 +197,17 @@ loader.load('./arcwave.fbx',async(model)=>{
             diffuseColor.rgb = mix(diffuseColor.rgb, arcBaseBlend, arcScrollVisibility);
           }`
         ).replace(
-          '#include <output_fragment>',
-          `#include <output_fragment>
+          '#include <emissivemap_fragment>',
+          `#include <emissivemap_fragment>
           if (arcPulseEnabled > 0.5) {
             float arcEnergyPulse = 0.5 + 0.5 * sin(arcScrollTime * 4.0);
-            gl_FragColor.rgb += vec3(0.0, 0.15, 0.8) * arcEnergyPulse * arcPulseStrength;
+            totalEmissiveRadiance += vec3(0.0, 0.35, 1.0) * arcEnergyPulse * arcPulseStrength * 2.0;
           }`
         );
+        status.textContent='Model loaded · textures loaded · scrolling map loaded · Arcwave shader active';
         scrollShaders.push(shader);
       };
-      mat.customProgramCacheKey=()=> 'arcwave-cod4-triplanar-energy-v2';
+      mat.customProgramCacheKey=()=> 'arcwave-cod4-triplanar-energy-v3';
     }
     obj.material=mat;
     modelMaterials.push(mat);
