@@ -1,0 +1,41 @@
+techniqueSet( "w_l_sm_r0c0n0s0" );
+
+#include "commonsetup.template"
+
+#define COSINE_POWER_SCALE	(@cosinePowerStrength@ * 0.01)
+#define COSINE_POWER_IMAGE	"$white"
+
+#if "@formatSpecular@" == "<auto compression>"
+	#define SPECULAR_FORMAT		"DXT5"
+#else
+	#define SPECULAR_FORMAT		"@formatSpecular@"
+#endif
+
+textureTable
+{
+	#if "$colorMap$" == ""
+		#error "missing colorMap! ( Main Gun Material )"
+	#endif
+	"colorMap" = map( "@tileColor@", "@filterColor@", "$colorMap$", @nopicmipColor@ ) "@formatColor@" : "colorMap";
+
+	#if "$normalMap$" == ""
+		#error "missing normalMap! ( Scrolling Texture )"
+	#endif
+	"normalMap" = map( "@tileColor@", "@filterColor@", "$normalMap$", @nopicmipColor@ ) "@formatColor@" : "normalMap";
+
+	#if "$specColorMap$" == ""
+		#error "missing specularMap! ( Realtime Reflection Intensity Map )"
+	#endif
+	"specularMap" = map( "@tileColor@", "@filterColor@", "$specColorMap$", @nopicmipColor@ ) "@formatColor@" : "specularMap";
+
+}
+
+constantTable
+{
+        "envMapParms" = float4( @envMapMin@ * 4, @envMapMax@ * 4, @envMapExponent@, 0.625 );
+        "colorTint" = float4( @,colorTint@ );
+}
+
+allocReflectionProbe();
+
+refImage( "$colorMap$" );
