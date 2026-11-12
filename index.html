@@ -158,7 +158,6 @@ loader.load('./arcwave.fbx',async(model)=>{
         shader.uniforms.arcScrollReverse={value:scrollReverseInput.checked?1:0};
         shader.uniforms.arcScrollEnabled={value:scrollEnabledInput.checked?1:0};
         shader.uniforms.arcScrollVisibility={value:Number(scrollVisibilityInput.value)};
-        shader.uniforms.arcShowBaseTexture={value:textureToggle.checked?1:0};
         shader.uniforms.arcPulseEnabled={value:pulseEnabledInput.checked?1:0};
         shader.uniforms.arcPulseStrength={value:Number(pulseStrengthInput.value)};
         shader.vertexShader=shader.vertexShader.replace(
@@ -170,7 +169,7 @@ loader.load('./arcwave.fbx',async(model)=>{
         );
         shader.fragmentShader=shader.fragmentShader.replace(
           '#include <common>',
-          '#include <common>\nuniform sampler2D arcScrollMap;\nuniform float arcScrollTime;\nuniform float arcScrollSpeed;\nuniform float arcScrollScale;\nuniform float arcScrollDirection;\nuniform float arcScrollReverse;\nuniform float arcScrollEnabled;\nuniform float arcScrollVisibility;\nuniform float arcShowBaseTexture;\nuniform float arcPulseEnabled;\nuniform float arcPulseStrength;\nvarying vec3 vArcwaveLocalPosition;\nvarying vec3 vArcwaveLocalNormal;'
+          '#include <common>\nuniform sampler2D arcScrollMap;\nuniform float arcScrollTime;\nuniform float arcScrollSpeed;\nuniform float arcScrollScale;\nuniform float arcScrollDirection;\nuniform float arcScrollReverse;\nuniform float arcScrollEnabled;\nuniform float arcScrollVisibility;\nuniform float arcPulseEnabled;\nuniform float arcPulseStrength;\nvarying vec3 vArcwaveLocalPosition;\nvarying vec3 vArcwaveLocalNormal;'
         ).replace(
           '#include <map_fragment>',
           `#include <map_fragment>
@@ -233,7 +232,7 @@ brightnessInput.addEventListener('input',applyBrightness);
 reflectionStrengthInput.addEventListener('input',()=>{for(const mat of modelMaterials)mat.envMapIntensity=Number(reflectionStrengthInput.value);});
 metalnessInput.addEventListener('input',()=>{for(const mat of modelMaterials)mat.metalness=Number(metalnessInput.value);});
 roughnessInput.addEventListener('input',()=>{for(const mat of modelMaterials)mat.roughness=Number(roughnessInput.value);});
-function updateScrollSettings(){for(const shader of scrollShaders){shader.uniforms.arcScrollSpeed.value=Number(scrollSpeedInput.value);shader.uniforms.arcScrollScale.value=Number(scrollScaleInput.value);shader.uniforms.arcScrollDirection.value=Number(scrollDirectionInput.value);shader.uniforms.arcScrollReverse.value=scrollReverseInput.checked?1:0;shader.uniforms.arcScrollEnabled.value=scrollEnabledInput.checked?1:0;shader.uniforms.arcScrollVisibility.value=Number(scrollVisibilityInput.value);shader.uniforms.arcShowBaseTexture.value=textureToggle.checked?1:0;shader.uniforms.arcPulseEnabled.value=pulseEnabledInput.checked?1:0;shader.uniforms.arcPulseStrength.value=Number(pulseStrengthInput.value);}}
+function updateScrollSettings(){for(const shader of scrollShaders){shader.uniforms.arcScrollSpeed.value=Number(scrollSpeedInput.value);shader.uniforms.arcScrollScale.value=Number(scrollScaleInput.value);shader.uniforms.arcScrollDirection.value=Number(scrollDirectionInput.value);shader.uniforms.arcScrollReverse.value=scrollReverseInput.checked?1:0;shader.uniforms.arcScrollEnabled.value=scrollEnabledInput.checked?1:0;shader.uniforms.arcScrollVisibility.value=Number(scrollVisibilityInput.value);shader.uniforms.arcPulseEnabled.value=pulseEnabledInput.checked?1:0;shader.uniforms.arcPulseStrength.value=Number(pulseStrengthInput.value);}}
 scrollEnabledInput.addEventListener('change',updateScrollSettings);
 scrollSpeedInput.addEventListener('input',updateScrollSettings);
 scrollScaleInput.addEventListener('input',updateScrollSettings);
