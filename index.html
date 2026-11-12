@@ -36,6 +36,8 @@ h1{font-size:22px;margin:0 0 5px;letter-spacing:.04em}p{margin:0;color:#9fb4ce;f
   <h2>Preview settings</h2>
   <label class="control"><span>Brightness</span><span style="display:flex;align-items:center;gap:6px"><input id="brightness" type="range" min="0.5" max="3" step="0.1" value="1.2"><span id="brightnessValue">1.2×</span></span></label>
   <label class="control"><span>Reflections</span><input id="reflectionStrength" type="range" min="0" max="2.5" step="0.05" value="1.2"></label>
+  <label class="control"><span>Metalness</span><input id="metalness" type="range" min="0" max="1" step="0.01" value="0.85"></label>
+  <label class="control"><span>Roughness</span><input id="roughness" type="range" min="0.05" max="1" step="0.01" value="0.32"></label>
   <label class="control"><span>Show textures</span><input id="textures" type="checkbox" checked></label>
   <label class="control"><span>Scrolling shader</span><input id="scrollEnabled" type="checkbox" checked></label>
   <label class="control"><span>Scroll speed</span><input id="scrollSpeed" type="range" min="0" max="3" step="0.1" value="0.8"></label>
@@ -65,6 +67,8 @@ const host=document.getElementById('view'), status=document.getElementById('stat
 const brightnessInput=document.getElementById('brightness');
 const brightnessValue=document.getElementById('brightnessValue');
 const reflectionStrengthInput=document.getElementById('reflectionStrength');
+const metalnessInput=document.getElementById('metalness');
+const roughnessInput=document.getElementById('roughness');
 const lightingSelect=document.getElementById('lighting');
 const textureViewSelect=document.getElementById('textureView');
 const modelInfo=document.getElementById('modelInfo');
@@ -118,10 +122,10 @@ loader.load('./arcwave.fbx',async(model)=>{
     faceCount+=geometry.index?geometry.index.count/3:(geometry.attributes.position?geometry.attributes.position.count/3:0);
     obj.castShadow=true;obj.receiveShadow=true;
     const old=obj.material;
-    const mat=new THREE.MeshStandardMaterial({color:0xffffff,map:color||null,normalMap:normal||null,normalScale:new THREE.Vector2(0.15,0.15),
-      metalness:.72,roughness:.42,envMapIntensity:Number(reflectionStrengthInput.value)});
+    const mat=new THREE.MeshStandardMaterial({color:0xffffff,map:color||null,normalMap:null,
+      metalness:Number(metalnessInput.value),roughness:Number(roughnessInput.value),envMapIntensity:Number(reflectionStrengthInput.value)});
     if(old && old.color && !color)mat.color.copy(old.color);
-    mat.userData.originalMap=mat.map;mat.userData.originalNormal=mat.normalMap;mat.userData.originalRoughness=mat.roughnessMap;
+    mat.userData.originalMap=mat.map;mat.userData.originalNormal=null;mat.userData.originalRoughness=null;
     if(scroll){
       mat.onBeforeCompile=(shader)=>{
         shader.uniforms.arcScrollMap={value:scroll};
@@ -180,6 +184,8 @@ function applyBrightness(){
 }
 brightnessInput.addEventListener('input',applyBrightness);
 reflectionStrengthInput.addEventListener('input',()=>{for(const mat of modelMaterials)mat.envMapIntensity=Number(reflectionStrengthInput.value);});
+metalnessInput.addEventListener('input',()=>{for(const mat of modelMaterials)mat.metalness=Number(metalnessInput.value);});
+roughnessInput.addEventListener('input',()=>{for(const mat of modelMaterials)mat.roughness=Number(roughnessInput.value);});
 function updateScrollSettings(){for(const shader of scrollShaders){shader.uniforms.arcScrollSpeed.value=Number(scrollSpeedInput.value);shader.uniforms.arcScrollScale.value=Number(scrollScaleInput.value);shader.uniforms.arcScrollEnabled.value=scrollEnabledInput.checked?1:0;shader.uniforms.arcScrollVisibility.value=Number(scrollVisibilityInput.value);}}
 scrollEnabledInput.addEventListener('change',updateScrollSettings);
 scrollSpeedInput.addEventListener('input',updateScrollSettings);
