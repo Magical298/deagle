@@ -39,6 +39,7 @@ h1{font-size:22px;margin:0 0 5px;letter-spacing:.04em}p{margin:0;color:#9fb4ce;f
   <label class="control"><span>Reflections</span><input id="reflectionStrength" type="range" min="0" max="2.5" step="0.05" value="1.2"></label>
   <label class="control"><span>Metalness</span><input id="metalness" type="range" min="0" max="1" step="0.01" value="0.85"></label>
   <label class="control"><span>Roughness</span><input id="roughness" type="range" min="0.05" max="1" step="0.01" value="0.32"></label>
+  <label class="control"><span>Clearcoat</span><input id="clearcoat" type="range" min="0" max="1" step="0.01" value="0.35"></label>
   <label class="control"><span>Show textures</span><input id="textures" type="checkbox" checked></label>
   <label class="control"><span>Scrolling shader</span><input id="scrollEnabled" type="checkbox" checked></label>
   <label class="control"><span>Scroll direction</span><select id="scrollDirection"><option value="0">Original (Z axis)</option><option value="1">X axis</option><option value="2">Y axis</option><option value="3">All axes</option></select></label>
@@ -115,6 +116,7 @@ const brightnessValue=document.getElementById('brightnessValue');
 const reflectionStrengthInput=document.getElementById('reflectionStrength');
 const metalnessInput=document.getElementById('metalness');
 const roughnessInput=document.getElementById('roughness');
+const clearcoatInput=document.getElementById('clearcoat');
 const lightingSelect=document.getElementById('lighting');
 const textureViewSelect=document.getElementById('textureView');
 const modelInfo=document.getElementById('modelInfo');
@@ -176,13 +178,15 @@ loader.load('./arcwave.fbx',async(model)=>{
     faceCount+=geometry.index?geometry.index.count/3:(geometry.attributes.position?geometry.attributes.position.count/3:0);
     obj.castShadow=true;obj.receiveShadow=true;
     const old=obj.material;
-    const mat=new THREE.MeshStandardMaterial({
+    const mat=new THREE.MeshPhysicalMaterial({
       color:0xffffff,
       map:color||null,
       normalMap:null,
       metalness:Number(metalnessInput.value),
       roughness:Number(roughnessInput.value),
-      envMapIntensity:Number(reflectionStrengthInput.value)
+      envMapIntensity:Number(reflectionStrengthInput.value),
+      clearcoat:Number(clearcoatInput.value),
+      clearcoatRoughness:0.22
     });
     if(old && old.color && !color)mat.color.copy(old.color);
     mat.userData.originalMap=mat.map;
@@ -274,6 +278,7 @@ brightnessInput.addEventListener('input',applyBrightness);
 reflectionStrengthInput.addEventListener('input',()=>{for(const mat of modelMaterials)mat.envMapIntensity=Number(reflectionStrengthInput.value);});
 metalnessInput.addEventListener('input',()=>{for(const mat of modelMaterials)mat.metalness=Number(metalnessInput.value);});
 roughnessInput.addEventListener('input',()=>{for(const mat of modelMaterials)mat.roughness=Number(roughnessInput.value);});
+clearcoatInput.addEventListener('input',()=>{for(const mat of modelMaterials)mat.clearcoat=Number(clearcoatInput.value);});
 function updateScrollSettings(){for(const shader of scrollShaders){shader.uniforms.arcScrollSpeed.value=Number(scrollSpeedInput.value);shader.uniforms.arcScrollScale.value=Number(scrollScaleInput.value);shader.uniforms.arcScrollDirection.value=Number(scrollDirectionInput.value);shader.uniforms.arcScrollReverse.value=scrollReverseInput.checked?1:0;shader.uniforms.arcScrollEnabled.value=loadedTextures.scroll&&scrollEnabledInput.checked?1:0;shader.uniforms.arcScrollVisibility.value=Number(scrollVisibilityInput.value);shader.uniforms.arcPulseEnabled.value=pulseEnabledInput.checked?1:0;shader.uniforms.arcPulseStrength.value=Number(pulseStrengthInput.value);}}
 scrollEnabledInput.addEventListener('change',updateScrollSettings);
 scrollSpeedInput.addEventListener('input',updateScrollSettings);
@@ -290,7 +295,7 @@ document.getElementById('resetShaderSettings').addEventListener('click',()=>{
 });
 
 const PRESET_STORAGE_KEY='arcwaveMaterialPresets';
-const presetFields=['brightness','reflectionStrength','metalness','roughness','scrollEnabled','scrollDirection','scrollReverse','scrollPaused','scrollSpeed','scrollVisibility','scrollScale','pulseEnabled','pulseStrength','lighting','background'];
+const presetFields=['brightness','reflectionStrength','metalness','roughness','clearcoat','scrollEnabled','scrollDirection','scrollReverse','scrollPaused','scrollSpeed','scrollVisibility','scrollScale','pulseEnabled','pulseStrength','lighting','background'];
 function readPresets(){
   try{return JSON.parse(localStorage.getItem(PRESET_STORAGE_KEY)||'{}')||{};}
   catch(error){console.warn('Could not read saved presets',error);return {};}
@@ -346,7 +351,7 @@ refreshPresetList();
 
 document.getElementById('resetDefaults').addEventListener('click',()=>{
   const defaults={
-    brightness:'1.2',reflectionStrength:'1.2',metalness:'0.85',roughness:'0.32',
+    brightness:'1.2',reflectionStrength:'1.2',metalness:'0.85',roughness:'0.32',clearcoat:'0.35',
     scrollEnabled:true,scrollDirection:'0',scrollReverse:false,scrollPaused:false,scrollSpeed:'0.8',scrollVisibility:'1',scrollScale:'4',pulseEnabled:true,pulseStrength:'0.35',
     lighting:'studio',background:'07111f'
   };
