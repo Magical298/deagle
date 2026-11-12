@@ -35,6 +35,7 @@ h1{font-size:22px;margin:0 0 5px;letter-spacing:.04em}p{margin:0;color:#9fb4ce;f
 <aside id="panel">
   <h2>Preview settings</h2>
   <label class="control"><span>Brightness</span><span style="display:flex;align-items:center;gap:6px"><input id="brightness" type="range" min="0.5" max="3" step="0.1" value="1.2"><span id="brightnessValue">1.2×</span></span></label>
+  <label class="control"><span>Reflections</span><input id="reflectionStrength" type="range" min="0" max="2.5" step="0.05" value="1.2"></label>
   <label class="control"><span>Show textures</span><input id="textures" type="checkbox" checked></label>
   <label class="control"><span>Scrolling shader</span><input id="scrollEnabled" type="checkbox" checked></label>
   <label class="control"><span>Scroll speed</span><input id="scrollSpeed" type="range" min="0" max="3" step="0.1" value="0.8"></label>
@@ -58,10 +59,12 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { DDSLoader } from 'three/addons/loaders/DDSLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 const host=document.getElementById('view'), status=document.getElementById('status');
 const brightnessInput=document.getElementById('brightness');
 const brightnessValue=document.getElementById('brightnessValue');
+const reflectionStrengthInput=document.getElementById('reflectionStrength');
 const lightingSelect=document.getElementById('lighting');
 const textureViewSelect=document.getElementById('textureView');
 const modelInfo=document.getElementById('modelInfo');
@@ -81,6 +84,8 @@ camera.position.set(4,3,6);
 const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setSize(innerWidth,innerHeight);
 renderer.outputColorSpace=THREE.SRGBColorSpace; renderer.toneMapping=THREE.ACESFilmicToneMapping;
+const pmremGenerator=new THREE.PMREMGenerator(renderer);
+scene.environment=pmremGenerator.fromScene(new RoomEnvironment(),0.04).texture;
 renderer.toneMappingExposure=1.15; host.appendChild(renderer.domElement);
 const hemi=new THREE.HemisphereLight(0x9bcaff,0x182235,2);scene.add(hemi);
 const key=new THREE.DirectionalLight(0xffffff,3);key.position.set(4,7,5);scene.add(key);
@@ -114,7 +119,7 @@ loader.load('./arcwave.fbx',async(model)=>{
     obj.castShadow=true;obj.receiveShadow=true;
     const old=obj.material;
     const mat=new THREE.MeshStandardMaterial({color:0xffffff,map:color||null,normalMap:normal||null,
-      roughnessMap:specular||null,metalness:.72,roughness:.34,metalness:specular?1:.72});
+      roughnessMap:specular||null,metalness:.72,roughness:.34,metalness:specular?1:.72,envMapIntensity:Number(reflectionStrengthInput.value)});
     if(old && old.color && !color)mat.color.copy(old.color);
     mat.userData.originalMap=mat.map;mat.userData.originalNormal=mat.normalMap;mat.userData.originalRoughness=mat.roughnessMap;
     if(scroll){
@@ -174,6 +179,7 @@ function applyBrightness(){
   hemi.intensity=2*value;key.intensity=3*value;rim.intensity=2.5*value;
 }
 brightnessInput.addEventListener('input',applyBrightness);
+reflectionStrengthInput.addEventListener('input',()=>{for(const mat of modelMaterials)mat.envMapIntensity=Number(reflectionStrengthInput.value);});
 function updateScrollSettings(){for(const shader of scrollShaders){shader.uniforms.arcScrollSpeed.value=Number(scrollSpeedInput.value);shader.uniforms.arcScrollScale.value=Number(scrollScaleInput.value);shader.uniforms.arcScrollEnabled.value=scrollEnabledInput.checked?1:0;shader.uniforms.arcScrollVisibility.value=Number(scrollVisibilityInput.value);}}
 scrollEnabledInput.addEventListener('change',updateScrollSettings);
 scrollSpeedInput.addEventListener('input',updateScrollSettings);
