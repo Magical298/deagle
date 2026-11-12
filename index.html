@@ -131,7 +131,7 @@ loader.load('./arcwave.fbx',async(model)=>{
           '#include <common>\nvarying vec3 vArcwaveWorldPosition;\nvarying vec3 vArcwaveWorldNormal;'
         ).replace(
           '#include <worldpos_vertex>',
-          '#include <worldpos_vertex>\nvArcwaveWorldPosition = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvArcwaveWorldNormal = normalize(mat3(modelMatrix) * objectNormal);'
+          '#include <worldpos_vertex>\nvArcwaveWorldPosition = worldPosition.xyz;\nvArcwaveWorldNormal = normalize(mat3(modelMatrix) * objectNormal);'
         );
         shader.fragmentShader=shader.fragmentShader.replace(
           '#include <common>',
