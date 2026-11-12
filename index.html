@@ -56,6 +56,7 @@ h1{font-size:22px;margin:0 0 5px;letter-spacing:.04em}p{margin:0;color:#9fb4ce;f
     <button id="savePreset" type="button">Save current settings</button>
     <button id="loadPreset" type="button">Load selected preset</button>
     <button id="deletePreset" type="button">Delete selected preset</button>
+    <button id="resetDefaults" type="button">Reset to default settings</button>
   </div>
   <div class="control"><span>Zoom</span><span id="zoomButtons"><button id="zoomIn" type="button">+</button><button id="zoomOut" type="button">−</button></span></div>
   <button id="resetView" type="button">Reset camera view</button>
@@ -256,6 +257,23 @@ document.getElementById('deletePreset').addEventListener('click',()=>{
   catch(error){status.textContent='Could not update saved presets.';console.error(error);}
 });
 refreshPresetList();
+
+document.getElementById('resetDefaults').addEventListener('click',()=>{
+  const defaults={
+    brightness:'1.2',reflectionStrength:'1.2',metalness:'0.85',roughness:'0.32',
+    scrollEnabled:true,scrollSpeed:'0.8',scrollVisibility:'1',scrollScale:'4',
+    lighting:'studio',background:'07111f'
+  };
+  applyPreset(defaults);
+  textureToggle.checked=true;
+  textureViewSelect.value='material';
+  applyTextureInspection();
+  wireframeToggle.checked=false;
+  for(const mat of modelMaterials)mat.wireframe=false;
+  gridToggle.checked=true;grid.visible=true;floor.visible=true;
+  rotateToggle.checked=false;controls.autoRotate=false;
+  status.textContent='Default Arcwave settings restored.';
+});
 
 wireframeToggle.addEventListener('change',()=>{for(const mat of modelMaterials)mat.wireframe=wireframeToggle.checked;});
 gridToggle.addEventListener('change',()=>{grid.visible=gridToggle.checked;floor.visible=gridToggle.checked;});
