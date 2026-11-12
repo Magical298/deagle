@@ -40,9 +40,13 @@ h1{font-size:22px;margin:0 0 5px;letter-spacing:.04em}p{margin:0;color:#9fb4ce;f
   <label class="control"><span>Roughness</span><input id="roughness" type="range" min="0.05" max="1" step="0.01" value="0.32"></label>
   <label class="control"><span>Show textures</span><input id="textures" type="checkbox" checked></label>
   <label class="control"><span>Scrolling shader</span><input id="scrollEnabled" type="checkbox" checked></label>
+  <label class="control"><span>Scroll direction</span><select id="scrollDirection"><option value="0">Horizontal</option><option value="1">Vertical</option><option value="2">Both</option></select></label>
+  <label class="control"><span>Reverse direction</span><input id="scrollReverse" type="checkbox"></label>
+  <label class="control"><span>Pause scrolling</span><input id="scrollPaused" type="checkbox"></label>
   <label class="control"><span>Scroll speed</span><input id="scrollSpeed" type="range" min="0" max="3" step="0.1" value="0.8"></label>
   <label class="control"><span>Scroll visibility</span><input id="scrollVisibility" type="range" min="0" max="1" step="0.05" value="1"></label>
-  <label class="control"><span>Scroll scale</span><input id="scrollScale" type="range" min="1" max="30" step="1" value="4"></label>
+  <label class="control"><span>Texture tiling</span><input id="scrollScale" type="range" min="1" max="30" step="1" value="4"></label>
+  <button id="resetShaderSettings" type="button">Reset shader settings</button>
   <label class="control"><span>Wireframe</span><input id="wireframe" type="checkbox"></label>
   <label class="control"><span>Show grid</span><input id="showGrid" type="checkbox" checked></label>
   <label class="control"><span>Auto-rotate</span><input id="autoRotate" type="checkbox"></label>
@@ -93,6 +97,9 @@ const scrollEnabledInput=document.getElementById('scrollEnabled');
 const scrollSpeedInput=document.getElementById('scrollSpeed');
 const scrollScaleInput=document.getElementById('scrollScale');
 const scrollVisibilityInput=document.getElementById('scrollVisibility');
+const scrollDirectionInput=document.getElementById('scrollDirection');
+const scrollReverseInput=document.getElementById('scrollReverse');
+const scrollPausedInput=document.getElementById('scrollPaused');
 const scene=new THREE.Scene(); scene.background=new THREE.Color(0x07111f);
 const camera=new THREE.PerspectiveCamera(40,innerWidth/innerHeight,.1,1000);
 camera.position.set(4,3,6);
@@ -143,6 +150,8 @@ loader.load('./arcwave.fbx',async(model)=>{
         shader.uniforms.arcScrollTime={value:0};
         shader.uniforms.arcScrollSpeed={value:Number(scrollSpeedInput.value)};
         shader.uniforms.arcScrollScale={value:Number(scrollScaleInput.value)};
+        shader.uniforms.arcScrollDirection={value:Number(scrollDirectionInput.value)};
+        shader.uniforms.arcScrollReverse={value:scrollReverseInput.checked?1:0};
         shader.uniforms.arcScrollEnabled={value:scrollEnabledInput.checked?1:0};
         shader.uniforms.arcScrollVisibility={value:Number(scrollVisibilityInput.value)};
         shader.vertexShader=shader.vertexShader.replace(
@@ -154,14 +163,21 @@ loader.load('./arcwave.fbx',async(model)=>{
         );
         shader.fragmentShader=shader.fragmentShader.replace(
           '#include <common>',
-          '#include <common>\nuniform sampler2D arcScrollMap;\nuniform float arcScrollTime;\nuniform float arcScrollSpeed;\nuniform float arcScrollScale;\nuniform float arcScrollEnabled;\nuniform float arcScrollVisibility;\nvarying vec2 vArcwaveUv;'
+          '#include <common>\nuniform sampler2D arcScrollMap;\nuniform float arcScrollTime;\nuniform float arcScrollSpeed;\nuniform float arcScrollScale;\nuniform float arcScrollDirection;\nuniform float arcScrollReverse;\nuniform float arcScrollEnabled;\nuniform float arcScrollVisibility;\nvarying vec2 vArcwaveUv;'
         ).replace(
           '#include <map_fragment>',
           `#include <map_fragment>
           if (arcScrollEnabled > 0.5) {
-            // Match the COD4 HLSL: scroll the texture horizontally over time.
+            // Horizontal reproduces the original COD4 HLSL; vertical and both are preview options.
             vec2 arcUv = vArcwaveUv * arcScrollScale;
-            arcUv.x += arcScrollTime * arcScrollSpeed;
+            float arcTravel = arcScrollTime * arcScrollSpeed * mix(1.0, -1.0, arcScrollReverse);
+            if (arcScrollDirection < 0.5) {
+              arcUv.x += arcTravel;
+            } else if (arcScrollDirection < 1.5) {
+              arcUv.y += arcTravel;
+            } else {
+              arcUv += vec2(arcTravel, arcTravel);
+            }
             vec4 arcScroll = texture2D(arcScrollMap, arcUv);
             diffuseColor.rgb = mix(diffuseColor.rgb, arcScroll.rgb, arcScrollVisibility);
           }`
@@ -192,14 +208,21 @@ brightnessInput.addEventListener('input',applyBrightness);
 reflectionStrengthInput.addEventListener('input',()=>{for(const mat of modelMaterials)mat.envMapIntensity=Number(reflectionStrengthInput.value);});
 metalnessInput.addEventListener('input',()=>{for(const mat of modelMaterials)mat.metalness=Number(metalnessInput.value);});
 roughnessInput.addEventListener('input',()=>{for(const mat of modelMaterials)mat.roughness=Number(roughnessInput.value);});
-function updateScrollSettings(){for(const shader of scrollShaders){shader.uniforms.arcScrollSpeed.value=Number(scrollSpeedInput.value);shader.uniforms.arcScrollScale.value=Number(scrollScaleInput.value);shader.uniforms.arcScrollEnabled.value=scrollEnabledInput.checked?1:0;shader.uniforms.arcScrollVisibility.value=Number(scrollVisibilityInput.value);}}
+function updateScrollSettings(){for(const shader of scrollShaders){shader.uniforms.arcScrollSpeed.value=Number(scrollSpeedInput.value);shader.uniforms.arcScrollScale.value=Number(scrollScaleInput.value);shader.uniforms.arcScrollDirection.value=Number(scrollDirectionInput.value);shader.uniforms.arcScrollReverse.value=scrollReverseInput.checked?1:0;shader.uniforms.arcScrollEnabled.value=scrollEnabledInput.checked?1:0;shader.uniforms.arcScrollVisibility.value=Number(scrollVisibilityInput.value);}}
 scrollEnabledInput.addEventListener('change',updateScrollSettings);
 scrollSpeedInput.addEventListener('input',updateScrollSettings);
 scrollScaleInput.addEventListener('input',updateScrollSettings);
 scrollVisibilityInput.addEventListener('input',updateScrollSettings);
+scrollDirectionInput.addEventListener('change',updateScrollSettings);
+scrollReverseInput.addEventListener('change',updateScrollSettings);
+document.getElementById('resetShaderSettings').addEventListener('click',()=>{
+  scrollEnabledInput.checked=true;scrollDirectionInput.value='0';scrollReverseInput.checked=false;scrollPausedInput.checked=false;
+  scrollSpeedInput.value='0.8';scrollVisibilityInput.value='1';scrollScaleInput.value='4';
+  scrollElapsed=0;updateScrollSettings();status.textContent='Shader settings reset to defaults.';
+});
 
 const PRESET_STORAGE_KEY='arcwaveMaterialPresets';
-const presetFields=['brightness','reflectionStrength','metalness','roughness','scrollEnabled','scrollSpeed','scrollVisibility','scrollScale','lighting','background'];
+const presetFields=['brightness','reflectionStrength','metalness','roughness','scrollEnabled','scrollDirection','scrollReverse','scrollSpeed','scrollVisibility','scrollScale','lighting','background'];
 function readPresets(){
   try{return JSON.parse(localStorage.getItem(PRESET_STORAGE_KEY)||'{}')||{};}
   catch(error){console.warn('Could not read saved presets',error);return {};}
@@ -256,7 +279,7 @@ refreshPresetList();
 document.getElementById('resetDefaults').addEventListener('click',()=>{
   const defaults={
     brightness:'1.2',reflectionStrength:'1.2',metalness:'0.85',roughness:'0.32',
-    scrollEnabled:true,scrollSpeed:'0.8',scrollVisibility:'1',scrollScale:'4',
+    scrollEnabled:true,scrollDirection:'0',scrollReverse:false,scrollSpeed:'0.8',scrollVisibility:'1',scrollScale:'4',
     lighting:'studio',background:'07111f'
   };
   applyPreset(defaults);
@@ -308,6 +331,7 @@ document.getElementById('resetView').addEventListener('click',()=>{
 });
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 const scrollClock=new THREE.Clock();
-function animate(){requestAnimationFrame(animate);const elapsed=scrollClock.getElapsedTime();for(const shader of scrollShaders)shader.uniforms.arcScrollTime.value=elapsed;controls.update();renderer.render(scene,camera);}animate();
+let scrollElapsed=0;
+function animate(){requestAnimationFrame(animate);const delta=scrollClock.getDelta();if(!scrollPausedInput.checked)scrollElapsed+=delta;for(const shader of scrollShaders)shader.uniforms.arcScrollTime.value=scrollElapsed;controls.update();renderer.render(scene,camera);}animate();
 </script>
 </body></html>
