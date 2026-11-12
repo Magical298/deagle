@@ -222,7 +222,7 @@ document.getElementById('resetShaderSettings').addEventListener('click',()=>{
 });
 
 const PRESET_STORAGE_KEY='arcwaveMaterialPresets';
-const presetFields=['brightness','reflectionStrength','metalness','roughness','scrollEnabled','scrollDirection','scrollReverse','scrollSpeed','scrollVisibility','scrollScale','lighting','background'];
+const presetFields=['brightness','reflectionStrength','metalness','roughness','scrollEnabled','scrollDirection','scrollReverse','scrollPaused','scrollSpeed','scrollVisibility','scrollScale','lighting','background'];
 function readPresets(){
   try{return JSON.parse(localStorage.getItem(PRESET_STORAGE_KEY)||'{}')||{};}
   catch(error){console.warn('Could not read saved presets',error);return {};}
@@ -279,7 +279,7 @@ refreshPresetList();
 document.getElementById('resetDefaults').addEventListener('click',()=>{
   const defaults={
     brightness:'1.2',reflectionStrength:'1.2',metalness:'0.85',roughness:'0.32',
-    scrollEnabled:true,scrollDirection:'0',scrollReverse:false,scrollSpeed:'0.8',scrollVisibility:'1',scrollScale:'4',
+    scrollEnabled:true,scrollDirection:'0',scrollReverse:false,scrollPaused:false,scrollSpeed:'0.8',scrollVisibility:'1',scrollScale:'4',
     lighting:'studio',background:'07111f'
   };
   applyPreset(defaults);
