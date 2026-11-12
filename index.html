@@ -196,14 +196,14 @@ loader.load('./arcwave.fbx',async(model)=>{
             arcSample += arcBlend.z * texture2D(arcScrollMap, arcCoords.xy);
             // Preserve the weapon texture and use the scroll map only as a glowing energy pattern.
             float arcPatternValue = dot(arcSample.rgb, vec3(0.299, 0.587, 0.114));
-            arcEnergyMask = smoothstep(0.42, 0.58, arcPatternValue) * (1.0 - smoothstep(0.76, 0.9, arcPatternValue));
-            diffuseColor.rgb += vec3(0.015, 0.08, 0.32) * arcEnergyMask * arcScrollVisibility;
+            arcEnergyMask = clamp(arcSample.r, 0.0, 1.0);
+            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.015, 0.16, 0.85), arcEnergyMask * arcScrollVisibility * 0.75);
           }`
         ).replace(
           '#include <emissivemap_fragment>',
           `#include <emissivemap_fragment>
            if (arcScrollEnabled > 0.5) {
-             totalEmissiveRadiance += vec3(0.0, 0.22, 1.0) * arcEnergyMask * arcScrollVisibility * 1.8;
+             totalEmissiveRadiance += vec3(0.0, 0.3, 1.0) * arcEnergyMask * arcScrollVisibility * 3.0;
            }
           if (arcPulseEnabled > 0.5) {
             float arcEnergyPulse = 0.5 + 0.5 * sin(arcScrollTime * 4.0);
@@ -213,7 +213,7 @@ loader.load('./arcwave.fbx',async(model)=>{
         status.textContent='Model loaded · textures loaded · scrolling map loaded · Arcwave shader active';
         scrollShaders.push(shader);
       };
-      mat.customProgramCacheKey=()=> 'arcwave-energy-overlay-v6';
+      mat.customProgramCacheKey=()=> 'arcwave-energy-overlay-v7';
     }
     obj.material=mat;
     modelMaterials.push(mat);
