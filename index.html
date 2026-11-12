@@ -164,11 +164,12 @@ const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamp
 controls.target.set(0,0,0);
 
 const dds=new DDSLoader();
-const textureFiles=['deagle_arcwave_color.dds','deagle_arcwave_normal.dds'];
 const loadTexture=(file)=>new Promise((resolve)=>dds.load('./'+file,resolve,undefined,()=>resolve(null)));
 const loader=new FBXLoader();
 loader.load('./arcwave.fbx',async(model)=>{
-  const [color,scroll]=await Promise.all(textureFiles.map(loadTexture));
+  const color=await loadTexture('deagle_arcwave_color.dds');
+  // The optional Arcwave scroll texture was removed from the repository.
+  const scroll=null;
   if(color){color.colorSpace=THREE.SRGBColorSpace;color.flipY=false;}
   if(scroll){scroll.colorSpace=THREE.NoColorSpace;scroll.flipY=false;scroll.wrapS=THREE.RepeatWrapping;scroll.wrapT=THREE.RepeatWrapping;scroll.needsUpdate=true;}
   loadedTextures={color,scroll};
@@ -298,7 +299,7 @@ loader.load('./arcwave.fbx',async(model)=>{
   defaultCameraPosition=camera.position.clone();
   controls.target.set(0,0,0);controls.update();
   modelInfo.innerHTML='Meshes: '+meshCount+'<br>Vertices: '+vertexCount.toLocaleString()+'<br>Triangles: '+Math.floor(faceCount).toLocaleString()+'<br>Size: '+size.x.toFixed(3)+' × '+size.y.toFixed(3)+' × '+size.z.toFixed(3)+' units';
-  status.textContent='Model loaded · colour '+(color?'loaded':'missing')+' · original Arcwave scroll map '+(scroll?'loaded':'missing');
+  status.textContent='Model loaded · colour '+(color?'loaded':'missing')+' · scroll texture not configured';
 },undefined,error=>{console.error(error);status.textContent='Could not load arcwave.fbx — check the file name and GitHub Pages deployment.';});
 function applyBrightness(){
   const value=Number(brightnessInput.value);
