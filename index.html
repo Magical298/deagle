@@ -176,8 +176,11 @@ loader.load('./arcwave.fbx',async(model)=>{
   const modelBounds=new THREE.Box3().setFromObject(model);
   const modelDimensions=modelBounds.getSize(new THREE.Vector3());
   const maxModelDimension=Math.max(modelDimensions.x,modelDimensions.y,modelDimensions.z)||1;
-  model.traverse(obj=>{
-    if(!obj.isMesh)return;
+  // Collect the original weapon meshes first. Do not add overlay children
+  // while traversing: Three.js traverse() would visit those new children too.
+  const modelMeshes=[];
+  model.traverse(obj=>{if(obj.isMesh)modelMeshes.push(obj);});
+  for(const obj of modelMeshes){
     meshCount++;
     const geometry=obj.geometry;
     if(geometry.attributes.position)vertexCount+=geometry.attributes.position.count;
@@ -287,7 +290,7 @@ loader.load('./arcwave.fbx',async(model)=>{
     wireOverlay.frustumCulled=false;
     obj.add(wireOverlay);
     wireframeOverlays.push(wireOverlay);
-  });
+  }
   const box=new THREE.Box3().setFromObject(model), size=box.getSize(new THREE.Vector3()), center=box.getCenter(new THREE.Vector3());
   model.position.sub(center);scene.add(model);modelRoot=model;
   const maxDim=Math.max(size.x,size.y,size.z)||1;
@@ -440,6 +443,6 @@ document.getElementById('resetView').addEventListener('click',()=>{
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 const scrollClock=new THREE.Clock();
 let scrollElapsed=0;
-function animate(){requestAnimationFrame(animate);const delta=scrollClock.getDelta();if(!scrollPausedInput.checked)scrollElapsed+=delta;for(const shader of scrollShaders)shader.uniforms.arcScrollTime.value=scrollElapsed;for(const overlay of wireframeOverlays)overlay.material.uniforms.uTime.value=scrollElapsed;controls.update();renderer.render(scene,camera);}animate();
+function animate(){requestAnimationFrame(animate);const delta=scrollClock.getDelta();if(!scrollPausedInput.checked)scrollElapsed+=delta;for(const shader of scrollShaders){if(shader.uniforms?.arcScrollTime)shader.uniforms.arcScrollTime.value=scrollElapsed;}for(const overlay of wireframeOverlays){const timeUniform=overlay.material?.uniforms?.uTime;if(timeUniform)timeUniform.value=scrollElapsed;}controls.update();renderer.render(scene,camera);}animate();
 </script>
 </body></html>
