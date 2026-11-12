@@ -193,8 +193,10 @@ loader.load('./arcwave.fbx',async(model)=>{
             vec4 arcSample = arcBlend.x * texture2D(arcScrollMap, arcCoords.yz);
             arcSample += arcBlend.y * texture2D(arcScrollMap, arcCoords.xz);
             arcSample += arcBlend.z * texture2D(arcScrollMap, arcCoords.xy);
-            vec3 arcBaseBlend = mix(arcSample.rgb, diffuseColor.rgb, diffuseColor.a);
-            diffuseColor.rgb = mix(diffuseColor.rgb, arcBaseBlend, arcScrollVisibility);
+            // Treat the COD4 scroll texture as an energy mask, not as a surface-colour texture.
+            float arcEnergyMask = smoothstep(0.38, 0.72, dot(arcSample.rgb, vec3(0.299, 0.587, 0.114)));
+            vec3 arcEnergyColour = vec3(0.015, 0.12, 0.65);
+            diffuseColor.rgb = mix(diffuseColor.rgb, max(diffuseColor.rgb, arcEnergyColour), arcEnergyMask * arcScrollVisibility);
           }`
         ).replace(
           '#include <emissivemap_fragment>',
@@ -207,7 +209,7 @@ loader.load('./arcwave.fbx',async(model)=>{
         status.textContent='Model loaded · textures loaded · scrolling map loaded · Arcwave shader active';
         scrollShaders.push(shader);
       };
-      mat.customProgramCacheKey=()=> 'arcwave-cod4-triplanar-energy-v4';
+      mat.customProgramCacheKey=()=> 'arcwave-cod4-triplanar-energy-mask-v5';
     }
     obj.material=mat;
     modelMaterials.push(mat);
