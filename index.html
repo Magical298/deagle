@@ -10,7 +10,7 @@
 h1{font-size:22px;margin:0 0 5px;letter-spacing:.04em}p{margin:0;color:#9fb4ce;font-size:13px}
 #status{position:fixed;z-index:2;bottom:20px;left:24px;color:#9fb4ce;font-size:12px}
 #help{position:fixed;z-index:2;bottom:20px;right:24px;color:#9fb4ce;font-size:12px;text-align:right}
-#panel{position:fixed;z-index:3;top:20px;right:20px;width:250px;padding:16px;background:rgba(8,19,34,.94);border:1px solid #29415e;border-radius:12px;box-shadow:0 8px 30px #0006;backdrop-filter:blur(10px)}
+#panel{position:fixed;z-index:3;top:20px;right:20px;width:250px;max-height:calc(100vh - 40px);overflow-y:auto;padding:16px;background:rgba(8,19,34,.94);border:1px solid #29415e;border-radius:12px;box-shadow:0 8px 30px #0006;backdrop-filter:blur(10px)}
 #panel h2{font-size:14px;margin:0 0 14px;letter-spacing:.08em;text-transform:uppercase}
 .control{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 0;color:#c8d8eb;font-size:13px}
 .control input[type=range]{width:110px;accent-color:#45a5ff}
@@ -22,7 +22,7 @@ h1{font-size:22px;margin:0 0 5px;letter-spacing:.04em}p{margin:0;color:#9fb4ce;f
 #modelInfo{font-size:11px;line-height:1.55;color:#9fb4ce;margin-top:12px;border-top:1px solid #29415e;padding-top:10px}
 #panel select{max-width:125px}
 #zoomButtons{display:flex;gap:7px}#zoomButtons button{width:50%}
-@media(max-width:650px){header{top:12px;left:14px}h1{font-size:17px}#panel{top:76px;right:10px;width:210px;padding:12px}#help{display:none}#status{left:14px;bottom:12px}}
+@media(max-width:650px){header{top:12px;left:14px}h1{font-size:17px}#panel{top:76px;right:10px;width:210px;max-height:calc(100vh - 88px);padding:12px}#help{display:none}#status{left:14px;bottom:12px}}
 </style>
 <script type="importmap">
 {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}
@@ -49,6 +49,14 @@ h1{font-size:22px;margin:0 0 5px;letter-spacing:.04em}p{margin:0;color:#9fb4ce;f
   <label class="control"><span>Background</span><select id="background"><option value="07111f">Navy</option><option value="000000">Black</option><option value="30343b">Grey</option><option value="d9e1ea">Light</option></select></label>
   <label class="control"><span>Lighting</span><select id="lighting"><option value="studio">Studio</option><option value="bright">Bright</option><option value="soft">Soft</option><option value="dramatic">Dramatic</option></select></label>
   <label class="control"><span>Texture inspection</span><select id="textureView"><option value="material">Normal material</option><option value="color">Colour map</option><option value="normal">Normal map</option><option value="specular">Specular map</option></select></label>
+  <div style="border-top:1px solid #29415e;margin-top:14px;padding-top:12px">
+    <h2 style="margin-bottom:8px">Material presets</h2>
+    <label class="control"><span>Saved presets</span><select id="presetSelect"><option value="">Select a preset</option></select></label>
+    <input id="presetName" type="text" maxlength="32" placeholder="Name this preset" aria-label="Preset name" style="width:100%;padding:8px;background:#14263c;color:#eaf3ff;border:1px solid #38516d;border-radius:6px">
+    <button id="savePreset" type="button">Save current settings</button>
+    <button id="loadPreset" type="button">Load selected preset</button>
+    <button id="deletePreset" type="button">Delete selected preset</button>
+  </div>
   <div class="control"><span>Zoom</span><span id="zoomButtons"><button id="zoomIn" type="button">+</button><button id="zoomOut" type="button">−</button></span></div>
   <button id="resetView" type="button">Reset camera view</button>
   <button id="screenshot" type="button">Save screenshot</button>
@@ -72,6 +80,8 @@ const roughnessInput=document.getElementById('roughness');
 const lightingSelect=document.getElementById('lighting');
 const textureViewSelect=document.getElementById('textureView');
 const modelInfo=document.getElementById('modelInfo');
+const presetSelect=document.getElementById('presetSelect');
+const presetNameInput=document.getElementById('presetName');
 const textureToggle=document.getElementById('textures');
 const wireframeToggle=document.getElementById('wireframe');
 const gridToggle=document.getElementById('showGrid');
@@ -190,6 +200,62 @@ function updateScrollSettings(){for(const shader of scrollShaders){shader.unifor
 scrollEnabledInput.addEventListener('change',updateScrollSettings);
 scrollSpeedInput.addEventListener('input',updateScrollSettings);
 scrollScaleInput.addEventListener('input',updateScrollSettings);
+scrollVisibilityInput.addEventListener('input',updateScrollSettings);
+
+const PRESET_STORAGE_KEY='arcwaveMaterialPresets';
+const presetFields=['brightness','reflectionStrength','metalness','roughness','scrollEnabled','scrollSpeed','scrollVisibility','scrollScale','lighting','background'];
+function readPresets(){
+  try{return JSON.parse(localStorage.getItem(PRESET_STORAGE_KEY)||'{}')||{};}
+  catch(error){console.warn('Could not read saved presets',error);return {};}
+}
+function refreshPresetList(selected=''){
+  const presets=readPresets();
+  presetSelect.replaceChildren(new Option('Select a preset',''));
+  Object.keys(presets).sort((a,b)=>a.localeCompare(b)).forEach(name=>presetSelect.add(new Option(name,name)));
+  presetSelect.value=selected;
+}
+function getCurrentPreset(){
+  const values={};
+  for(const id of presetFields){
+    const el=document.getElementById(id);
+    values[id]=el.type==='checkbox'?el.checked:el.value;
+  }
+  return values;
+}
+function applyPreset(values){
+  for(const id of presetFields){
+    if(!(id in values))continue;
+    const el=document.getElementById(id);
+    if(el.type==='checkbox')el.checked=Boolean(values[id]);
+    else el.value=String(values[id]);
+    el.dispatchEvent(new Event(el.type==='checkbox'?'change':'input',{bubbles:true}));
+  }
+  lightingSelect.dispatchEvent(new Event('change',{bubbles:true}));
+  backgroundSelect.dispatchEvent(new Event('change',{bubbles:true}));
+  applyBrightness();
+  updateScrollSettings();
+}
+document.getElementById('savePreset').addEventListener('click',()=>{
+  const name=presetNameInput.value.trim();
+  if(!name){status.textContent='Enter a name for this preset first.';presetNameInput.focus();return;}
+  const presets=readPresets();
+  presets[name]=getCurrentPreset();
+  try{localStorage.setItem(PRESET_STORAGE_KEY,JSON.stringify(presets));refreshPresetList(name);status.textContent='Preset saved: '+name;}
+  catch(error){status.textContent='Could not save preset. Check your browser storage settings.';console.error(error);}
+});
+document.getElementById('loadPreset').addEventListener('click',()=>{
+  const name=presetSelect.value,preset=readPresets()[name];
+  if(!name||!preset){status.textContent='Choose a saved preset to load.';return;}
+  applyPreset(preset);presetNameInput.value=name;status.textContent='Preset loaded: '+name;
+});
+document.getElementById('deletePreset').addEventListener('click',()=>{
+  const name=presetSelect.value;
+  if(!name){status.textContent='Choose a saved preset to delete.';return;}
+  const presets=readPresets();delete presets[name];
+  try{localStorage.setItem(PRESET_STORAGE_KEY,JSON.stringify(presets));refreshPresetList();presetNameInput.value='';status.textContent='Preset deleted: '+name;}
+  catch(error){status.textContent='Could not update saved presets.';console.error(error);}
+});
+refreshPresetList();
 
 wireframeToggle.addEventListener('change',()=>{for(const mat of modelMaterials)mat.wireframe=wireframeToggle.checked;});
 gridToggle.addEventListener('change',()=>{grid.visible=gridToggle.checked;floor.visible=gridToggle.checked;});
