@@ -123,99 +123,71 @@ const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamp
 controls.target.set(0,0,0);
 
 const dds=new DDSLoader();
-const textureFiles=['deagle_arcwave_color.dds','deagle_arcwave_normal.dds','deagle_arcwave_specular.dds','desert_texscroll.dds'];
-const loadTexture=(file)=>new Promise((resolve)=>{const url=file==='desert_texscroll.dds'?'https://raw.githubusercontent.com/Magical298/deagle/main/desert_texscroll.dds':'./'+file;dds.load(url,resolve,undefined,()=>resolve(null));});
+const textureFiles=['deagle_arcwave_color.dds','deagle_arcwave_normal.dds','deagle_arcwave_specular.dds'];
+const loadTexture=(file)=>new Promise((resolve)=>dds.load('./'+file,resolve,undefined,()=>resolve(null)));
 const loader=new FBXLoader();
 loader.load('./arcwave.fbx',async(model)=>{
-  const [color,normal,specular,scroll]=await Promise.all(textureFiles.map(loadTexture));
+  const [color,normal,specular]=await Promise.all(textureFiles.map(loadTexture));
   if(color){color.colorSpace=THREE.SRGBColorSpace;color.flipY=false;}
   if(normal)normal.flipY=false;if(specular)specular.flipY=false;
-   if(scroll){scroll.flipY=false;scroll.wrapS=THREE.RepeatWrapping;scroll.wrapT=THREE.RepeatWrapping;scroll.colorSpace=THREE.NoColorSpace;}
-  loadedTextures={color,normal,specular,scroll};
-  let vertexCount=0,faceCount=0,meshCount=0;
-  const modelBounds=new THREE.Box3().setFromObject(model);
-  const modelDimensions=modelBounds.getSize(new THREE.Vector3());
-  const maxModelDimension=Math.max(modelDimensions.x,modelDimensions.y,modelDimensions.z)||1;
-  model.traverse(obj=>{
-    if(!obj.isMesh)return;
-    meshCount++;
-    const geometry=obj.geometry;
-    if(geometry.attributes.position)vertexCount+=geometry.attributes.position.count;
-    faceCount+=geometry.index?geometry.index.count/3:(geometry.attributes.position?geometry.attributes.position.count/3:0);
-    obj.castShadow=true;obj.receiveShadow=true;
-    const old=obj.material;
-    const mat=new THREE.MeshStandardMaterial({color:0xffffff,map:color||null,normalMap:null,
-      metalness:Number(metalnessInput.value),roughness:Number(roughnessInput.value),envMapIntensity:Number(reflectionStrengthInput.value)});
-    if(old && old.color && !color)mat.color.copy(old.color);
-    mat.userData.originalMap=mat.map;mat.userData.originalNormal=null;mat.userData.originalRoughness=null;
-    if(scroll){
-      mat.onBeforeCompile=(shader)=>{
-        shader.uniforms.arcScrollMap={value:scroll};
-        shader.uniforms.arcScrollTime={value:0};
-        shader.uniforms.arcScrollSpeed={value:Number(scrollSpeedInput.value)};
-        shader.uniforms.arcScrollScale={value:Number(scrollScaleInput.value)};
-        shader.uniforms.arcScrollDirection={value:Number(scrollDirectionInput.value)};
-        shader.uniforms.arcScrollReverse={value:scrollReverseInput.checked?1:0};
-        shader.uniforms.arcScrollEnabled={value:scrollEnabledInput.checked?1:0};
-        shader.uniforms.arcScrollVisibility={value:Number(scrollVisibilityInput.value)};
-        shader.uniforms.arcPulseEnabled={value:pulseEnabledInput.checked?1:0};
-        shader.uniforms.arcPulseStrength={value:Number(pulseStrengthInput.value)};
-        shader.vertexShader=shader.vertexShader.replace(
-          '#include <common>',
-          '#include <common>\nvarying vec3 vArcwaveLocalPosition;\nvarying vec3 vArcwaveLocalNormal;'
-        ).replace(
-          '#include <begin_vertex>',
-          '#include <begin_vertex>\nvArcwaveLocalPosition = position;\nvArcwaveLocalNormal = normal;'
-        );
-        shader.fragmentShader=shader.fragmentShader.replace(
-          '#include <common>',
-          '#include <common>\nuniform sampler2D arcScrollMap;\nuniform float arcScrollTime;\nuniform float arcScrollSpeed;\nuniform float arcScrollScale;\nuniform float arcScrollDirection;\nuniform float arcScrollReverse;\nuniform float arcScrollEnabled;\nuniform float arcScrollVisibility;\nuniform float arcPulseEnabled;\nuniform float arcPulseStrength;\nvarying vec3 vArcwaveLocalPosition;\nvarying vec3 vArcwaveLocalNormal;'
-        ).replace(
-          '#include <map_fragment>',
-          `#include <map_fragment>
-          // Arcwave's original shader uses triplanar world/object-axis projection.
-           float arcEnergyMask = 0.0;
-          if (arcScrollEnabled > 0.5) {
-            vec3 arcNormal = normalize(vArcwaveLocalNormal);
-            vec3 arcBlend = pow(max(abs(arcNormal) - vec3(0.2), vec3(0.0)), vec3(1.8));
-            arcBlend /= max(arcBlend.x + arcBlend.y + arcBlend.z, 0.00001);
-            vec3 arcPosition = vArcwaveLocalPosition;
-            float arcTravel = arcScrollTime * arcScrollSpeed * mix(1.0, -1.0, arcScrollReverse);
-            if (arcScrollDirection < 0.5) {
-              arcPosition.z += arcTravel;
-            } else if (arcScrollDirection < 1.5) {
-              arcPosition.x += arcTravel;
-            } else if (arcScrollDirection < 2.5) {
-              arcPosition.y += arcTravel;
-            } else {
-              arcPosition += vec3(arcTravel);
-            }
-            vec3 arcCoords = arcPosition * (0.1 * arcScrollScale / 4.0);
-            vec4 arcSample = arcBlend.x * texture2D(arcScrollMap, arcCoords.yz);
-            arcSample += arcBlend.y * texture2D(arcScrollMap, arcCoords.xz);
-            arcSample += arcBlend.z * texture2D(arcScrollMap, arcCoords.xy);
-            // Preserve the weapon texture and use the scroll map only as a glowing energy pattern.
-            float arcPatternValue = dot(arcSample.rgb, vec3(0.299, 0.587, 0.114));
-            arcEnergyMask = clamp(arcSample.r, 0.0, 1.0);
-            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.015, 0.16, 0.85), arcEnergyMask * arcScrollVisibility * 0.75);
-          }`
-        ).replace(
-          '#include <emissivemap_fragment>',
-          `#include <emissivemap_fragment>
-           if (arcScrollEnabled > 0.5) {
-             totalEmissiveRadiance += vec3(0.0, 0.3, 1.0) * arcEnergyMask * arcScrollVisibility * 3.0;
+   mat.onBeforeCompile=(shader)=>{
+       shader.uniforms.arcScrollTime={value:0};
+       shader.uniforms.arcScrollSpeed={value:Number(scrollSpeedInput.value)};
+       shader.uniforms.arcScrollScale={value:Number(scrollScaleInput.value)};
+       shader.uniforms.arcScrollDirection={value:Number(scrollDirectionInput.value)};
+       shader.uniforms.arcScrollReverse={value:scrollReverseInput.checked?1:0};
+       shader.uniforms.arcScrollEnabled={value:scrollEnabledInput.checked?1:0};
+       shader.uniforms.arcScrollVisibility={value:Number(scrollVisibilityInput.value)};
+       shader.uniforms.arcPulseEnabled={value:pulseEnabledInput.checked?1:0};
+       shader.uniforms.arcPulseStrength={value:Number(pulseStrengthInput.value)};
+       shader.vertexShader=shader.vertexShader.replace(
+         '#include <common>',
+         '#include <common>\\nvarying vec3 vArcwaveLocalPosition;\\nvarying vec3 vArcwaveLocalNormal;'
+       ).replace(
+         '#include <begin_vertex>',
+         '#include <begin_vertex>\\nvArcwaveLocalPosition = position;\\nvArcwaveLocalNormal = normal;'
+       );
+       shader.fragmentShader=shader.fragmentShader.replace(
+         '#include <common>',
+         '#include <common>\\nuniform float arcScrollTime;\\nuniform float arcScrollSpeed;\\nuniform float arcScrollScale;\\nuniform float arcScrollDirection;\\nuniform float arcScrollReverse;\\nuniform float arcScrollEnabled;\\nuniform float arcScrollVisibility;\\nuniform float arcPulseEnabled;\\nuniform float arcPulseStrength;\\nvarying vec3 vArcwaveLocalPosition;\\nvarying vec3 vArcwaveLocalNormal;'
+       ).replace(
+         '#include <map_fragment>',
+         `#include <map_fragment>
+         float arcEnergyMask = 0.0;
+         if (arcScrollEnabled > 0.5) {
+           vec3 arcPosition = vArcwaveLocalPosition;
+           float arcTravel = arcScrollTime * arcScrollSpeed * mix(1.0, -1.0, arcScrollReverse);
+           if (arcScrollDirection < 0.5) {
+             arcPosition.z += arcTravel;
+           } else if (arcScrollDirection < 1.5) {
+             arcPosition.x += arcTravel;
+           } else if (arcScrollDirection < 2.5) {
+             arcPosition.y += arcTravel;
+           } else {
+             arcPosition += vec3(arcTravel);
            }
-          if (arcPulseEnabled > 0.5) {
-            float arcEnergyPulse = 0.5 + 0.5 * sin(arcScrollTime * 4.0);
-            totalEmissiveRadiance += vec3(0.0, 0.35, 1.0) * arcEnergyPulse * arcPulseStrength * 2.0;
-          }`
-        );
-        status.textContent='Model loaded · textures loaded · scrolling map loaded · Arcwave shader active';
-        scrollShaders.push(shader);
-      };
-      mat.customProgramCacheKey=()=> 'arcwave-energy-overlay-v7';
-    }
-    obj.material=mat;
+           float arcPhase = dot(arcPosition, vec3(4.1, 6.7, 9.3)) * arcScrollScale;
+           float arcDistortion = sin(dot(arcPosition, vec3(13.0, 9.0, 7.0)) * arcScrollScale * 0.45) * 0.9;
+           float arcWave = sin(arcPhase + arcDistortion);
+           arcEnergyMask = smoothstep(0.15, 0.9, arcWave);
+           diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.015, 0.16, 0.85), arcEnergyMask * arcScrollVisibility * 0.75);
+         }`
+       ).replace(
+         '#include <emissivemap_fragment>',
+         `#include <emissivemap_fragment>
+         if (arcScrollEnabled > 0.5) {
+           totalEmissiveRadiance += vec3(0.0, 0.3, 1.0) * arcEnergyMask * arcScrollVisibility * 3.0;
+         }
+         if (arcPulseEnabled > 0.5) {
+           float arcEnergyPulse = 0.5 + 0.5 * sin(arcScrollTime * 4.0);
+           totalEmissiveRadiance += vec3(0.0, 0.35, 1.0) * arcEnergyPulse * arcPulseStrength * 2.0;
+         }`
+       );
+       status.textContent='Model loaded · Arcwave procedural shader active';
+       scrollShaders.push(shader);
+     };
+     mat.customProgramCacheKey=()=> 'arcwave-procedural-energy-v1';
+     obj.material=mat;
     modelMaterials.push(mat);
   });
   const box=new THREE.Box3().setFromObject(model), size=box.getSize(new THREE.Vector3()), center=box.getCenter(new THREE.Vector3());
