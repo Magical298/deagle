@@ -38,6 +38,7 @@ h1{font-size:22px;margin:0 0 5px;letter-spacing:.04em}p{margin:0;color:#9fb4ce;f
   <label class="control"><span>Show textures</span><input id="textures" type="checkbox" checked></label>
   <label class="control"><span>Scrolling shader</span><input id="scrollEnabled" type="checkbox" checked></label>
   <label class="control"><span>Scroll speed</span><input id="scrollSpeed" type="range" min="0" max="3" step="0.1" value="0.8"></label>
+  <label class="control"><span>Scroll visibility</span><input id="scrollVisibility" type="range" min="0" max="1" step="0.05" value="0.35"></label>
   <label class="control"><span>Scroll scale</span><input id="scrollScale" type="range" min="2" max="30" step="1" value="10"></label>
   <label class="control"><span>Wireframe</span><input id="wireframe" type="checkbox"></label>
   <label class="control"><span>Show grid</span><input id="showGrid" type="checkbox" checked></label>
@@ -73,6 +74,7 @@ let modelRoot=null, modelMaterials=[], defaultCameraPosition=null, scrollShaders
 const scrollEnabledInput=document.getElementById('scrollEnabled');
 const scrollSpeedInput=document.getElementById('scrollSpeed');
 const scrollScaleInput=document.getElementById('scrollScale');
+const scrollVisibilityInput=document.getElementById('scrollVisibility');
 const scene=new THREE.Scene(); scene.background=new THREE.Color(0x07111f);
 const camera=new THREE.PerspectiveCamera(40,innerWidth/innerHeight,.1,1000);
 camera.position.set(4,3,6);
@@ -91,7 +93,7 @@ controls.target.set(0,0,0);
 
 const dds=new DDSLoader();
 const textureFiles=['deagle_arcwave_color.dds','deagle_arcwave_normal.dds','deagle_arcwave_specular.dds','desert_texscroll.dds'];
-const loadTexture=(file)=>new Promise((resolve)=>dds.load('./'+file,resolve,undefined,()=>resolve(null)));
+const loadTexture=(file)=>new Promise((resolve)=>{const url=file==='desert_texscroll.dds'?'https://raw.githubusercontent.com/Magical298/deagle/main/desert_texscroll.dds':'./'+file;dds.load(url,resolve,undefined,()=>resolve(null));});
 const loader=new FBXLoader();
 loader.load('./arcwave.fbx',async(model)=>{
   const [color,normal,specular,scroll]=await Promise.all(textureFiles.map(loadTexture));
@@ -119,6 +121,7 @@ loader.load('./arcwave.fbx',async(model)=>{
         shader.uniforms.arcScrollSpeed={value:Number(scrollSpeedInput.value)};
         shader.uniforms.arcScrollScale={value:Number(scrollScaleInput.value)};
         shader.uniforms.arcScrollEnabled={value:scrollEnabledInput.checked?1:0};
+        shader.uniforms.arcScrollVisibility={value:Number(scrollVisibilityInput.value)};
         shader.vertexShader=shader.vertexShader.replace(
           '#include <common>',
           '#include <common>\nvarying vec3 vArcwaveWorldPosition;\nvarying vec3 vArcwaveWorldNormal;'
@@ -128,7 +131,7 @@ loader.load('./arcwave.fbx',async(model)=>{
         );
         shader.fragmentShader=shader.fragmentShader.replace(
           '#include <common>',
-          '#include <common>\nuniform sampler2D arcScrollMap;\nuniform float arcScrollTime;\nuniform float arcScrollSpeed;\nuniform float arcScrollScale;\nuniform float arcScrollEnabled;\nvarying vec3 vArcwaveWorldPosition;\nvarying vec3 vArcwaveWorldNormal;'
+          '#include <common>\nuniform sampler2D arcScrollMap;\nuniform float arcScrollTime;\nuniform float arcScrollSpeed;\nuniform float arcScrollScale;\nuniform float arcScrollEnabled;\nuniform float arcScrollVisibility;\nvarying vec3 vArcwaveWorldPosition;\nvarying vec3 vArcwaveWorldNormal;'
         ).replace(
           '#include <map_fragment>',
           `#include <map_fragment>
@@ -141,7 +144,7 @@ loader.load('./arcwave.fbx',async(model)=>{
             vec4 arcScroll = texture2D(arcScrollMap, arcP.yz) * arcBlend.x;
             arcScroll += texture2D(arcScrollMap, arcP.xz) * arcBlend.y;
             arcScroll += texture2D(arcScrollMap, arcP.xy) * arcBlend.z;
-            diffuseColor.rgb = mix(arcScroll.rgb, diffuseColor.rgb, diffuseColor.a);
+            diffuseColor.rgb = mix(diffuseColor.rgb, arcScroll.rgb, arcScrollVisibility);
           }`
         );
         scrollShaders.push(shader);
@@ -167,7 +170,7 @@ function applyBrightness(){
   hemi.intensity=2*value;key.intensity=3*value;rim.intensity=2.5*value;
 }
 brightnessInput.addEventListener('input',applyBrightness);
-function updateScrollSettings(){for(const shader of scrollShaders){shader.uniforms.arcScrollSpeed.value=Number(scrollSpeedInput.value);shader.uniforms.arcScrollScale.value=Number(scrollScaleInput.value);shader.uniforms.arcScrollEnabled.value=scrollEnabledInput.checked?1:0;}}
+function updateScrollSettings(){for(const shader of scrollShaders){shader.uniforms.arcScrollSpeed.value=Number(scrollSpeedInput.value);shader.uniforms.arcScrollScale.value=Number(scrollScaleInput.value);shader.uniforms.arcScrollEnabled.value=scrollEnabledInput.checked?1:0;shader.uniforms.arcScrollVisibility.value=Number(scrollVisibilityInput.value);}}
 scrollEnabledInput.addEventListener('change',updateScrollSettings);
 scrollSpeedInput.addEventListener('input',updateScrollSettings);
 scrollScaleInput.addEventListener('input',updateScrollSettings);
