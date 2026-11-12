@@ -118,7 +118,7 @@ loader.load('./arcwave.fbx',async(model)=>{
     faceCount+=geometry.index?geometry.index.count/3:(geometry.attributes.position?geometry.attributes.position.count/3:0);
     obj.castShadow=true;obj.receiveShadow=true;
     const old=obj.material;
-    const mat=new THREE.MeshStandardMaterial({color:0xffffff,map:color||null,normalMap:normal||null,
+    const mat=new THREE.MeshStandardMaterial({color:0xffffff,map:color||null,normalMap:null,
       metalness:.72,roughness:.42,envMapIntensity:Number(reflectionStrengthInput.value)});
     if(old && old.color && !color)mat.color.copy(old.color);
     mat.userData.originalMap=mat.map;mat.userData.originalNormal=mat.normalMap;mat.userData.originalRoughness=mat.roughnessMap;
