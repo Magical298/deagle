@@ -166,14 +166,14 @@ loader.load('./arcwave.fbx',async(model)=>{
       shader.uniforms.arcPulseStrength={value:Number(pulseStrengthInput.value)};
       shader.vertexShader=shader.vertexShader.replace(
         '#include <common>',
-        '#include <common>\\nvarying vec3 vArcwaveLocalPosition;\\nvarying vec3 vArcwaveLocalNormal;'
+        '#include <common>\nvarying vec3 vArcwaveLocalPosition;\nvarying vec3 vArcwaveLocalNormal;'
       ).replace(
         '#include <begin_vertex>',
-        '#include <begin_vertex>\\nvArcwaveLocalPosition = position;\\nvArcwaveLocalNormal = normal;'
+        '#include <begin_vertex>\nvArcwaveLocalPosition = position;\nvArcwaveLocalNormal = normal;'
       );
       shader.fragmentShader=shader.fragmentShader.replace(
         '#include <common>',
-        '#include <common>\\nuniform float arcScrollTime;\\nuniform float arcScrollSpeed;\\nuniform float arcScrollScale;\\nuniform float arcScrollDirection;\\nuniform float arcScrollReverse;\\nuniform float arcScrollEnabled;\\nuniform float arcScrollVisibility;\\nuniform float arcPulseEnabled;\\nuniform float arcPulseStrength;\\nvarying vec3 vArcwaveLocalPosition;\\nvarying vec3 vArcwaveLocalNormal;'
+        '#include <common>\nuniform float arcScrollTime;\nuniform float arcScrollSpeed;\nuniform float arcScrollScale;\nuniform float arcScrollDirection;\nuniform float arcScrollReverse;\nuniform float arcScrollEnabled;\nuniform float arcScrollVisibility;\nuniform float arcPulseEnabled;\nuniform float arcPulseStrength;\nvarying vec3 vArcwaveLocalPosition;\nvarying vec3 vArcwaveLocalNormal;'
       ).replace(
         '#include <map_fragment>',
         `#include <map_fragment>
