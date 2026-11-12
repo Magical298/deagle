@@ -156,13 +156,14 @@ const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamp
 controls.target.set(0,0,0);
 
 const dds=new DDSLoader();
-const textureFiles=['deagle_arcwave_color.dds'];
+const textureFiles=['deagle_arcwave_color.dds','deagle_arcwave_normal.dds'];
 const loadTexture=(file)=>new Promise((resolve)=>dds.load('./'+file,resolve,undefined,()=>resolve(null)));
 const loader=new FBXLoader();
 loader.load('./arcwave.fbx',async(model)=>{
-  const [color]=await Promise.all(textureFiles.map(loadTexture));
+  const [color,scroll]=await Promise.all(textureFiles.map(loadTexture));
   if(color){color.colorSpace=THREE.SRGBColorSpace;color.flipY=false;}
-  loadedTextures={color};
+  if(scroll){scroll.colorSpace=THREE.NoColorSpace;scroll.flipY=false;scroll.wrapS=THREE.RepeatWrapping;scroll.wrapT=THREE.RepeatWrapping;scroll.needsUpdate=true;}
+  loadedTextures={color,scroll};
   let vertexCount=0,faceCount=0,meshCount=0;
   const modelBounds=new THREE.Box3().setFromObject(model);
   const modelDimensions=modelBounds.getSize(new THREE.Vector3());
@@ -188,12 +189,13 @@ loader.load('./arcwave.fbx',async(model)=>{
     mat.userData.originalNormal=null;
     mat.userData.originalRoughness=null;
     mat.onBeforeCompile=(shader)=>{
+      shader.uniforms.arcScrollMap={value:scroll};
       shader.uniforms.arcScrollTime={value:0};
       shader.uniforms.arcScrollSpeed={value:Number(scrollSpeedInput.value)};
       shader.uniforms.arcScrollScale={value:Number(scrollScaleInput.value)};
       shader.uniforms.arcScrollDirection={value:Number(scrollDirectionInput.value)};
       shader.uniforms.arcScrollReverse={value:scrollReverseInput.checked?1:0};
-      shader.uniforms.arcScrollEnabled={value:scrollEnabledInput.checked?1:0};
+      shader.uniforms.arcScrollEnabled={value:scroll&&scrollEnabledInput.checked?1:0};
       shader.uniforms.arcScrollVisibility={value:Number(scrollVisibilityInput.value)};
       shader.uniforms.arcPulseEnabled={value:pulseEnabledInput.checked?1:0};
       shader.uniforms.arcPulseStrength={value:Number(pulseStrengthInput.value)};
@@ -206,14 +208,15 @@ loader.load('./arcwave.fbx',async(model)=>{
       );
       shader.fragmentShader=shader.fragmentShader.replace(
         '#include <common>',
-        '#include <common>\nuniform float arcScrollTime;\nuniform float arcScrollSpeed;\nuniform float arcScrollScale;\nuniform float arcScrollDirection;\nuniform float arcScrollReverse;\nuniform float arcScrollEnabled;\nuniform float arcScrollVisibility;\nuniform float arcPulseEnabled;\nuniform float arcPulseStrength;\nvarying vec3 vArcwaveLocalPosition;\nvarying vec3 vArcwaveLocalNormal;'
+        '#include <common>\nuniform sampler2D arcScrollMap;\nuniform float arcScrollTime;\nuniform float arcScrollSpeed;\nuniform float arcScrollScale;\nuniform float arcScrollDirection;\nuniform float arcScrollReverse;\nuniform float arcScrollEnabled;\nuniform float arcScrollVisibility;\nuniform float arcPulseEnabled;\nuniform float arcPulseStrength;\nvarying vec3 vArcwaveLocalPosition;\nvarying vec3 vArcwaveLocalNormal;'
       ).replace(
         '#include <map_fragment>',
         `#include <map_fragment>
         float arcEnergyMask = 0.0;
         if (arcScrollEnabled > 0.5) {
+          // Original COD4 Arcwave: triplanar projection from object position and surface normal.
           vec3 arcPosition = vArcwaveLocalPosition;
-          float arcTravel = arcScrollTime * arcScrollSpeed * mix(1.0, -1.0, arcScrollReverse);
+          float arcTravel = arcScrollTime * arcScrollSpeed * 0.8 * mix(1.0, -1.0, arcScrollReverse);
           if (arcScrollDirection < 0.5) {
             arcPosition.z += arcTravel;
           } else if (arcScrollDirection < 1.5) {
@@ -223,11 +226,16 @@ loader.load('./arcwave.fbx',async(model)=>{
           } else {
             arcPosition += vec3(arcTravel);
           }
-          float arcPhase = dot(arcPosition, vec3(4.1, 6.7, 9.3)) * arcScrollScale;
-          float arcDistortion = sin(dot(arcPosition, vec3(13.0, 9.0, 7.0)) * arcScrollScale * 0.45) * 0.9;
-          float arcWave = sin(arcPhase + arcDistortion);
-          arcEnergyMask = smoothstep(0.15, 0.9, arcWave);
-          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.015, 0.16, 0.85), arcEnergyMask * arcScrollVisibility * 0.75);
+          vec3 tpUVS = arcPosition * (arcScrollScale / 40.0);
+          vec3 tpBlend = pow(max(abs(normalize(vArcwaveLocalNormal)) - vec3(0.2), vec3(0.0)), vec3(1.8));
+          tpBlend /= max(tpBlend.x + tpBlend.y + tpBlend.z, 0.00001);
+          vec4 tpSample = tpBlend.x * texture2D(arcScrollMap, tpUVS.yz);
+          tpSample += tpBlend.y * texture2D(arcScrollMap, tpUVS.xz);
+          tpSample += tpBlend.z * texture2D(arcScrollMap, tpUVS.xy);
+          // COD4 uses the base colour texture alpha to blend energy texture and lit weapon colour.
+          float arcEnergyBlend = (1.0 - diffuseColor.a) * arcScrollVisibility;
+          diffuseColor.rgb = mix(diffuseColor.rgb, tpSample.rgb, arcEnergyBlend);
+          arcEnergyMask = max(max(tpSample.r, tpSample.g), tpSample.b) * arcEnergyBlend;
         }`
       ).replace(
         '#include <emissivemap_fragment>',
@@ -243,7 +251,7 @@ loader.load('./arcwave.fbx',async(model)=>{
       status.textContent='Model loaded · Arcwave procedural shader active';
       scrollShaders.push(shader);
     };
-    mat.customProgramCacheKey=()=> 'arcwave-procedural-energy-v1';
+    mat.customProgramCacheKey=()=> 'arcwave-cod4-triplanar-port-v1';
     obj.material=mat;
     modelMaterials.push(mat);
   });
@@ -254,7 +262,7 @@ loader.load('./arcwave.fbx',async(model)=>{
   defaultCameraPosition=camera.position.clone();
   controls.target.set(0,0,0);controls.update();
   modelInfo.innerHTML='Meshes: '+meshCount+'<br>Vertices: '+vertexCount.toLocaleString()+'<br>Triangles: '+Math.floor(faceCount).toLocaleString()+'<br>Size: '+size.x.toFixed(3)+' × '+size.y.toFixed(3)+' × '+size.z.toFixed(3)+' units';
-  status.textContent='Model loaded · textures '+(color?'loaded':'not found')+' · procedural Arcwave shader active';
+  status.textContent='Model loaded · colour '+(color?'loaded':'missing')+' · original Arcwave scroll map '+(scroll?'loaded':'missing');
 },undefined,error=>{console.error(error);status.textContent='Could not load arcwave.fbx — check the file name and GitHub Pages deployment.';});
 function applyBrightness(){
   const value=Number(brightnessInput.value);
@@ -266,7 +274,7 @@ brightnessInput.addEventListener('input',applyBrightness);
 reflectionStrengthInput.addEventListener('input',()=>{for(const mat of modelMaterials)mat.envMapIntensity=Number(reflectionStrengthInput.value);});
 metalnessInput.addEventListener('input',()=>{for(const mat of modelMaterials)mat.metalness=Number(metalnessInput.value);});
 roughnessInput.addEventListener('input',()=>{for(const mat of modelMaterials)mat.roughness=Number(roughnessInput.value);});
-function updateScrollSettings(){for(const shader of scrollShaders){shader.uniforms.arcScrollSpeed.value=Number(scrollSpeedInput.value);shader.uniforms.arcScrollScale.value=Number(scrollScaleInput.value);shader.uniforms.arcScrollDirection.value=Number(scrollDirectionInput.value);shader.uniforms.arcScrollReverse.value=scrollReverseInput.checked?1:0;shader.uniforms.arcScrollEnabled.value=scrollEnabledInput.checked?1:0;shader.uniforms.arcScrollVisibility.value=Number(scrollVisibilityInput.value);shader.uniforms.arcPulseEnabled.value=pulseEnabledInput.checked?1:0;shader.uniforms.arcPulseStrength.value=Number(pulseStrengthInput.value);}}
+function updateScrollSettings(){for(const shader of scrollShaders){shader.uniforms.arcScrollSpeed.value=Number(scrollSpeedInput.value);shader.uniforms.arcScrollScale.value=Number(scrollScaleInput.value);shader.uniforms.arcScrollDirection.value=Number(scrollDirectionInput.value);shader.uniforms.arcScrollReverse.value=scrollReverseInput.checked?1:0;shader.uniforms.arcScrollEnabled.value=loadedTextures.scroll&&scrollEnabledInput.checked?1:0;shader.uniforms.arcScrollVisibility.value=Number(scrollVisibilityInput.value);shader.uniforms.arcPulseEnabled.value=pulseEnabledInput.checked?1:0;shader.uniforms.arcPulseStrength.value=Number(pulseStrengthInput.value);}}
 scrollEnabledInput.addEventListener('change',updateScrollSettings);
 scrollSpeedInput.addEventListener('input',updateScrollSettings);
 scrollScaleInput.addEventListener('input',updateScrollSettings);
