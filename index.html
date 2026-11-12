@@ -143,37 +143,32 @@ loader.load('./arcwave.fbx',async(model)=>{
         shader.uniforms.arcScrollTime={value:0};
         shader.uniforms.arcScrollSpeed={value:Number(scrollSpeedInput.value)};
         shader.uniforms.arcScrollScale={value:Number(scrollScaleInput.value)};
-        shader.uniforms.arcScrollModelSize={value:maxModelDimension};
         shader.uniforms.arcScrollEnabled={value:scrollEnabledInput.checked?1:0};
         shader.uniforms.arcScrollVisibility={value:Number(scrollVisibilityInput.value)};
         shader.vertexShader=shader.vertexShader.replace(
           '#include <common>',
-          '#include <common>\nvarying vec3 vArcwaveWorldPosition;\nvarying vec3 vArcwaveWorldNormal;'
+          '#include <common>\nvarying vec2 vArcwaveUv;'
         ).replace(
-          '#include <worldpos_vertex>',
-          '#include <worldpos_vertex>\nvArcwaveWorldPosition = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvArcwaveWorldNormal = normalize(mat3(modelMatrix) * objectNormal);'
+          '#include <uv_vertex>',
+          '#include <uv_vertex>\nvArcwaveUv = uv;'
         );
         shader.fragmentShader=shader.fragmentShader.replace(
           '#include <common>',
-          '#include <common>\nuniform sampler2D arcScrollMap;\nuniform float arcScrollTime;\nuniform float arcScrollSpeed;\nuniform float arcScrollScale;\nuniform float arcScrollModelSize;\nuniform float arcScrollEnabled;\nuniform float arcScrollVisibility;\nvarying vec3 vArcwaveWorldPosition;\nvarying vec3 vArcwaveWorldNormal;'
+          '#include <common>\nuniform sampler2D arcScrollMap;\nuniform float arcScrollTime;\nuniform float arcScrollSpeed;\nuniform float arcScrollScale;\nuniform float arcScrollEnabled;\nuniform float arcScrollVisibility;\nvarying vec2 vArcwaveUv;'
         ).replace(
           '#include <map_fragment>',
           `#include <map_fragment>
           if (arcScrollEnabled > 0.5) {
-            vec3 arcN = normalize(vArcwaveWorldNormal);
-            vec3 arcBlend = pow(max(abs(arcN) - vec3(0.2), vec3(0.0)), vec3(1.8));
-            arcBlend /= max(arcBlend.x + arcBlend.y + arcBlend.z, 0.0001);
-            vec3 arcP = vArcwaveWorldPosition / max(arcScrollModelSize, 0.001) * arcScrollScale;
-            arcP += vec3(arcScrollTime * arcScrollSpeed, arcScrollTime * arcScrollSpeed * 0.63, arcScrollTime * arcScrollSpeed * 0.37);
-            vec4 arcScroll = texture2D(arcScrollMap, arcP.yz) * arcBlend.x;
-            arcScroll += texture2D(arcScrollMap, arcP.xz) * arcBlend.y;
-            arcScroll += texture2D(arcScrollMap, arcP.xy) * arcBlend.z;
+            // Match the COD4 HLSL: scroll the texture horizontally over time.
+            vec2 arcUv = vArcwaveUv * arcScrollScale;
+            arcUv.x += arcScrollTime * arcScrollSpeed;
+            vec4 arcScroll = texture2D(arcScrollMap, arcUv);
             diffuseColor.rgb = mix(diffuseColor.rgb, arcScroll.rgb, arcScrollVisibility);
           }`
         );
         scrollShaders.push(shader);
       };
-      mat.customProgramCacheKey=()=> 'arcwave-triplanar-scroll-v1';
+      mat.customProgramCacheKey=()=> 'arcwave-cod4-uv-scroll-v1';
     }
     obj.material=mat;
     modelMaterials.push(mat);
