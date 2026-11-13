@@ -294,35 +294,53 @@ loader.load(modelUrl,async(model)=>{
     };
     if(activeWeapon==='deagle')mat.customProgramCacheKey=()=> 'deagle-m4-style-integrated-plasma-v1';
     if(activeWeapon==='m4'){
-      // Render Arcwave inside the original material shader. A second mesh on
-      // the exact same geometry can cause patchy depth-buffer flicker.
+      // Integrated into the base material to avoid duplicate-surface depth flicker.
       mat.onBeforeCompile=(shader)=>{
         shader.uniforms.m4ArcwaveTime={value:0};
         shader.vertexShader=shader.vertexShader.replace(
           '#include <common>',
-          '#include <common>\nvarying vec3 vM4ArcPosition;\nvarying vec3 vM4ArcNormal;'
+          `#include <common>
+varying vec3 vM4ArcPosition;
+varying vec3 vM4ArcNormal;`
         ).replace(
           '#include <begin_vertex>',
-          '#include <begin_vertex>\nvM4ArcPosition=position;\nvM4ArcNormal=normal;'
+          `#include <begin_vertex>
+vM4ArcPosition=position;
+vM4ArcNormal=normal;`
         );
         shader.fragmentShader=shader.fragmentShader.replace(
           '#include <common>',
-          '#include <common>\nuniform float m4ArcwaveTime;\nvarying vec3 vM4ArcPosition;\nvarying vec3 vM4ArcNormal;\nfloat m4ArcSat(float x){return clamp(x,0.0,1.0);}\nvec3 m4ElectricPlasma(vec2 uv,float time){float flow=uv.x*0.22+uv.y*0.11-time;float turbulence=sin(uv.y*0.55+sin(uv.x*0.31-time*0.7)*1.8+time*1.6);float wave=sin(flow*6.0+turbulence*2.0);float veins=pow(m4ArcSat(1.0-abs(wave)),10.0);float wisps=0.5+0.5*sin(uv.x*0.9-uv.y*0.45-time*2.2+sin(uv.y*0.7+time)*1.5);float glow=m4ArcSat(veins*1.2+pow(wisps,5.0)*0.35);float hue=0.5+0.5*sin(flow*1.5-time*0.8);vec3 energy=mix(vec3(0.02,0.65,1.0),vec3(0.42,0.05,1.0),hue);return energy*(0.18+glow*1.4);}'
+          `#include <common>
+uniform float m4ArcwaveTime;
+varying vec3 vM4ArcPosition;
+varying vec3 vM4ArcNormal;
+float m4ArcSat(float x){return clamp(x,0.0,1.0);}
+vec3 m4ElectricPlasma(vec2 uv,float time){
+  float flow=uv.x*0.22+uv.y*0.11-time;
+  float turbulence=sin(uv.y*0.55+sin(uv.x*0.31-time*0.7)*1.8+time*1.6);
+  float wave=sin(flow*6.0+turbulence*2.0);
+  float veins=pow(m4ArcSat(1.0-abs(wave)),10.0);
+  float wisps=0.5+0.5*sin(uv.x*0.9-uv.y*0.45-time*2.2+sin(uv.y*0.7+time)*1.5);
+  float glow=m4ArcSat(veins*1.2+pow(wisps,5.0)*0.35);
+  float hue=0.5+0.5*sin(flow*1.5-time*0.8);
+  vec3 energy=mix(vec3(0.02,0.65,1.0),vec3(0.42,0.05,1.0),hue);
+  return energy*(0.18+glow*1.4);
+}`
         ).replace(
           '#include <emissivemap_fragment>',
           `#include <emissivemap_fragment>
-          float m4Phase=m4ArcwaveTime*0.8;
-          vec3 m4N=normalize(vM4ArcNormal);
-          vec3 m4Blend=pow(max(abs(m4N)-vec3(0.25),vec3(0.0)),vec3(1.5));
-          m4Blend/=max(m4Blend.x+m4Blend.y+m4Blend.z,0.0001);
-          vec3 m4Plasma=m4ElectricPlasma(vM4ArcPosition.yz*32.0,m4Phase)*m4Blend.x
-            +m4ElectricPlasma(vM4ArcPosition.xz*32.0,m4Phase)*m4Blend.y
-            +m4ElectricPlasma(vM4ArcPosition.xy*32.0,m4Phase)*m4Blend.z;
-          totalEmissiveRadiance+=m4Plasma*1.6;`
+float m4Phase=m4ArcwaveTime*0.8;
+vec3 m4N=normalize(vM4ArcNormal);
+vec3 m4Blend=pow(max(abs(m4N)-vec3(0.25),vec3(0.0)),vec3(1.5));
+m4Blend/=max(m4Blend.x+m4Blend.y+m4Blend.z,0.0001);
+vec3 m4Plasma=m4ElectricPlasma(vM4ArcPosition.yz*32.0,m4Phase)*m4Blend.x
+  +m4ElectricPlasma(vM4ArcPosition.xz*32.0,m4Phase)*m4Blend.y
+  +m4ElectricPlasma(vM4ArcPosition.xy*32.0,m4Phase)*m4Blend.z;
+totalEmissiveRadiance+=m4Plasma*1.6;`
         );
         scrollShaders.push({uniforms:{arcScrollTime:shader.uniforms.m4ArcwaveTime}});
       };
-      mat.customProgramCacheKey=()=> 'm4-arcwave-integrated-v1';
+      mat.customProgramCacheKey=()=> 'm4-arcwave-integrated-v2';
     }
     obj.material=mat;
     modelMaterials.push(mat);
