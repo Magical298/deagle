@@ -150,6 +150,7 @@ weaponSelect.value=activeWeapon;
 document.getElementById('pageTitle').textContent=activeWeapon==='m4'?'ARCWAVE · M4':'ARCWAVE · DESERT EAGLE';
 weaponSelect.addEventListener('change',()=>{const url=new URL(location.href);if(weaponSelect.value==='m4')url.searchParams.set('weapon','m4');else url.searchParams.delete('weapon');location.href=url.toString();});
 let modelRoot=null, modelMaterials=[], defaultCameraPosition=null, scrollShaders=[], wireframeOverlays=[], loadedTextures={color:null};
+const arcwaveTimeUniform={value:0};
 const pulseEnabledInput=document.getElementById('pulseEnabled');
 const pulseStrengthInput=document.getElementById('pulseStrength');
 const scrollEnabledInput=document.getElementById('scrollEnabled');
@@ -187,7 +188,7 @@ loader.load(modelUrl,async(model)=>{
   const color=activeWeapon==='m4'?await new THREE.TextureLoader().loadAsync('https://raw.githubusercontent.com/Magical298/m4/main/weapon_m4_col.png').catch(error=>{console.error('M4 colour texture failed to load',error);return null;}):await new THREE.TextureLoader().loadAsync('./weapon_desert_eagle_silver_col.png').catch(error=>{console.error('Deagle colour texture failed to load',error);return null;});
   // The optional Arcwave scroll texture was removed from the repository.
   const scroll=null;
-  if(color){color.colorSpace=THREE.SRGBColorSpace;color.flipY=false;}
+  if(color){color.colorSpace=THREE.SRGBColorSpace;color.flipY=true;color.needsUpdate=true;}
   if(scroll){scroll.colorSpace=THREE.NoColorSpace;scroll.flipY=false;scroll.wrapS=THREE.RepeatWrapping;scroll.wrapT=THREE.RepeatWrapping;scroll.needsUpdate=true;}
   loadedTextures={color,scroll};
   let vertexCount=0,faceCount=0,meshCount=0;
@@ -229,7 +230,7 @@ loader.load(modelUrl,async(model)=>{
       mat.userData.originalRoughness=mat.roughnessMap||null;
       if(activeWeapon==='deagle')mat.onBeforeCompile=(shader)=>{
         shader.uniforms.arcScrollMap={value:scroll};
-        shader.uniforms.arcScrollTime={value:0};
+        shader.uniforms.arcScrollTime=arcwaveTimeUniform;
         shader.uniforms.arcScrollSpeed={value:Number(scrollSpeedInput.value)};
         shader.uniforms.arcScrollScale={value:Number(scrollScaleInput.value)};
         shader.uniforms.arcScrollDirection={value:Number(scrollDirectionInput.value)};
@@ -312,7 +313,7 @@ loader.load(modelUrl,async(model)=>{
       if(activeWeapon==='m4'){
         // Integrated into the base material to avoid duplicate-surface depth flicker.
         mat.onBeforeCompile=(shader)=>{
-          shader.uniforms.m4ArcwaveTime={value:0};
+          shader.uniforms.m4ArcwaveTime=arcwaveTimeUniform;
           shader.uniforms.m4ArcwaveEnabled={value:scrollEnabledInput.checked?1:0};
           shader.vertexShader=shader.vertexShader.replace(
             '#include <common>',
@@ -553,6 +554,6 @@ document.getElementById('resetView').addEventListener('click',()=>{
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 const scrollClock=new THREE.Clock();
 let scrollElapsed=0;
-function animate(){requestAnimationFrame(animate);const delta=scrollClock.getDelta();if(!scrollPausedInput.checked)scrollElapsed+=delta;for(const shader of scrollShaders){if(shader.uniforms?.arcScrollTime)shader.uniforms.arcScrollTime.value=scrollElapsed;if(shader.uniforms?.m4ArcwaveTime)shader.uniforms.m4ArcwaveTime.value=scrollElapsed;}for(const overlay of wireframeOverlays){const timeUniform=overlay.material?.uniforms?.uTime;if(timeUniform)timeUniform.value=scrollElapsed;}controls.update();renderer.render(scene,camera);}animate();
+function animate(){requestAnimationFrame(animate);const delta=scrollClock.getDelta();if(!scrollPausedInput.checked)scrollElapsed+=delta;arcwaveTimeUniform.value=scrollElapsed;for(const overlay of wireframeOverlays){const timeUniform=overlay.material?.uniforms?.uTime;if(timeUniform)timeUniform.value=scrollElapsed;}controls.update();renderer.render(scene,camera);}animate();
 </script>
 </body></html>
