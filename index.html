@@ -58,7 +58,7 @@ h1{font-size:22px;margin:0 0 5px;letter-spacing:.04em}p{margin:0;color:#9fb4ce;f
   <div class="section-title">Shader tools</div>
   <label class="control"><span>Wireframe shader</span><input id="wireframe" type="checkbox"></label>
   <label class="control"><span>Wireframe colour</span><select id="wireColor"><option value="#35c8ff">Arcwave blue</option><option value="#ffffff">White</option><option value="#00ff9c">Neon green</option><option value="#ffb347">Amber</option><option value="#ff3b81">Pink</option></select></label>
-  <label class="control"><span>Line thickness</span><input id="wireThickness" type="range" min="0.5" max="3" step="0.1" value="1.2"></label>
+  <label class="control"><span>Line thickness</span><input id="wireThickness" type="range" min="1" max="8" step="0.5" value="2"></label>
   <label class="control"><span>Line glow</span><input id="wireGlow" type="range" min="0" max="4" step="0.1" value="1.8"></label>
   <div class="section-title">Scene</div>
   <label class="control"><span>Show grid</span><input id="showGrid" type="checkbox" checked></label>
@@ -119,6 +119,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { DDSLoader } from 'three/addons/loaders/DDSLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
+import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 
 const host=document.getElementById('view'), status=document.getElementById('status');
 const brightnessInput=document.getElementById('brightness');
@@ -354,35 +357,26 @@ loader.load(modelUrl,async(model)=>{
       modelMaterials.push(mat);
     }
     obj.material=Array.isArray(old)?materials:materials[0];
-    // Dedicated triangle-wireframe overlay. WireframeGeometry + LineSegments is
-    // more reliable across browsers than barycentric derivatives on a cloned mesh.
+    // Screen-space thick lines: WebGL LineBasicMaterial linewidth is ignored
+    // on most platforms, so use the Three.js LineSegments2 addon instead.
     const wireGeometry=new THREE.WireframeGeometry(geometry);
-    const wireMaterial=new THREE.ShaderMaterial({
-      uniforms:{
-        uColor:{value:new THREE.Color(wireColorInput.value)},
-        uThickness:{value:Number(wireThicknessInput.value)},
-        uGlow:{value:Number(wireGlowInput.value)},
-        uTime:{value:0}
-      },
-      vertexShader:`void main(){
-        gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);
-      }`,
-      fragmentShader:`uniform vec3 uColor;
-        uniform float uThickness;
-        uniform float uGlow;
-        uniform float uTime;
-        void main(){
-          float intensity=1.0+uGlow;
-          float lineAlpha=clamp(0.72+uThickness*0.08,0.0,1.0);
-          gl_FragColor=vec4(uColor*intensity,lineAlpha);
-        }`,
+    const thickGeometry=new LineSegmentsGeometry();
+    thickGeometry.setPositions(wireGeometry.attributes.position.array);
+    wireGeometry.dispose();
+    const wireMaterial=new LineMaterial({
+      color:new THREE.Color(wireColorInput.value),
+      linewidth:Number(wireThicknessInput.value),
+      worldUnits:false,
       transparent:true,
+      opacity:0.9,
       depthWrite:false,
       depthTest:false,
       blending:THREE.AdditiveBlending,
       toneMapped:false
     });
-    const wireOverlay=new THREE.LineSegments(wireGeometry,wireMaterial);
+    wireMaterial.resolution.set(innerWidth,innerHeight);
+    wireMaterial.userData.baseOpacity=0.9;
+    const wireOverlay=new LineSegments2(thickGeometry,wireMaterial);
     wireOverlay.name='Arcwave wireframe shader overlay';
     wireOverlay.visible=wireframeToggle.checked;
     wireOverlay.renderOrder=10;
@@ -488,13 +482,24 @@ document.getElementById('resetDefaults').addEventListener('click',()=>{
   applyTextureInspection();
   wireframeToggle.checked=false;
   updateWireframeSettings();
-  wireThicknessInput.value="1.2";wireGlowInput.value="1.8";wireColorInput.value="#35c8ff";
+  wireThicknessInput.value="2";wireGlowInput.value="1.8";wireColorInput.value="#35c8ff";
   gridToggle.checked=true;grid.visible=true;floor.visible=true;
   rotateToggle.checked=false;controls.autoRotate=false;
   status.textContent='Default Arcwave settings restored.';
 });
 
-function updateWireframeSettings(){const colour=new THREE.Color(wireColorInput.value);for(const overlay of wireframeOverlays){overlay.visible=wireframeToggle.checked;overlay.material.uniforms.uColor.value.copy(colour);overlay.material.uniforms.uThickness.value=Number(wireThicknessInput.value);overlay.material.uniforms.uGlow.value=Number(wireGlowInput.value);}}
+function updateWireframeSettings(){
+  const colour=new THREE.Color(wireColorInput.value);
+  const thickness=Number(wireThicknessInput.value);
+  const glow=Number(wireGlowInput.value);
+  for(const overlay of wireframeOverlays){
+    overlay.visible=wireframeToggle.checked;
+    overlay.material.color.copy(colour);
+    overlay.material.linewidth=thickness;
+    overlay.material.opacity=Math.min(1,0.72+glow*0.08);
+    overlay.material.needsUpdate=true;
+  }
+}
 wireframeToggle.addEventListener('change',updateWireframeSettings);
 wireColorInput.addEventListener('change',updateWireframeSettings);
 wireThicknessInput.addEventListener('input',updateWireframeSettings);
@@ -535,7 +540,7 @@ document.getElementById('resetView').addEventListener('click',()=>{
   if(defaultCameraPosition)camera.position.copy(defaultCameraPosition);
   controls.target.set(0,0,0);controls.update();
 });
-addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);for(const overlay of wireframeOverlays)overlay.material.resolution.set(innerWidth,innerHeight);});
 const scrollClock=new THREE.Clock();
 let scrollElapsed=0;
 function animate(){requestAnimationFrame(animate);const delta=scrollClock.getDelta();if(!scrollPausedInput.checked)scrollElapsed+=delta;arcwaveTimeUniform.value=scrollElapsed;for(const overlay of wireframeOverlays){const timeUniform=overlay.material?.uniforms?.uTime;if(timeUniform)timeUniform.value=scrollElapsed;}controls.update();renderer.render(scene,camera);}animate();
