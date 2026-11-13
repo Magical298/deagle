@@ -205,20 +205,21 @@ loader.load(modelUrl,async(model)=>{
     faceCount+=geometry.index?geometry.index.count/3:(geometry.attributes.position?geometry.attributes.position.count/3:0);
     obj.castShadow=true;obj.receiveShadow=true;
     const old=obj.material;
-    const mat=new THREE.MeshPhysicalMaterial({
-      color:old&&old.color&&!color?old.color.clone():0xffffff,
-      map:color||(activeWeapon==='m4'&&old&&old.map?old.map:null),
-      normalMap:null,
-      metalness:Number(metalnessInput.value),
-      roughness:Number(roughnessInput.value),
-      envMapIntensity:Number(reflectionStrengthInput.value),
-      clearcoat:Number(clearcoatInput.value),
-      clearcoatRoughness:0.22
-    });
-    if(old && old.color && !color)mat.color.copy(old.color);
+    // Keep the FBX's original material type and surface settings. The external
+    // colour texture is applied as its albedo map instead of replacing the
+    // whole material with a generic MeshPhysicalMaterial.
+    const mat=old&&old.isMaterial?old.clone():new THREE.MeshPhysicalMaterial();
+    if(color){
+      mat.map=color;
+      if(mat.color)mat.color.set(0xffffff);
+    }
+    if('metalness' in mat)mat.metalness=Number(metalnessInput.value);
+    if('roughness' in mat)mat.roughness=Number(roughnessInput.value);
+    if('envMapIntensity' in mat)mat.envMapIntensity=Number(reflectionStrengthInput.value);
+    if('clearcoat' in mat)mat.clearcoat=Number(clearcoatInput.value);
     mat.userData.originalMap=mat.map;
-    mat.userData.originalNormal=null;
-    mat.userData.originalRoughness=null;
+    mat.userData.originalNormal=mat.normalMap||null;
+    mat.userData.originalRoughness=mat.roughnessMap||null;
     if(activeWeapon==='deagle')mat.onBeforeCompile=(shader)=>{
       shader.uniforms.arcScrollMap={value:scroll};
       shader.uniforms.arcScrollTime={value:0};
