@@ -162,7 +162,7 @@ function applyToonShader(shader){
   shader.uniforms.toonSoftness={value:Number(toonSoftnessInput.value)};
   shader.fragmentShader=shader.fragmentShader.replace(
     '#include <common>',
-    '#include <common>\\nuniform float toonEnabled;\\nuniform float toonBands;\\nuniform float toonSoftness;'
+    '#include <common>\nuniform float toonEnabled;\nuniform float toonBands;\nuniform float toonSoftness;'
   ).replace(
     '#include <lights_fragment_end>',
     `#include <lights_fragment_end>
@@ -279,7 +279,8 @@ loader.load(modelUrl,async(model)=>{
       mat.userData.originalNormal=mat.normalMap||null;
       mat.userData.originalRoughness=mat.roughnessMap||null;
       if(activeWeapon==='deagle')mat.onBeforeCompile=(shader)=>{
-        applyToonShader(shader);\n        shader.uniforms.arcScrollMap={value:scroll};
+        applyToonShader(shader);
+        shader.uniforms.arcScrollMap={value:scroll};
         shader.uniforms.arcScrollTime=arcwaveTimeUniform;
         shader.uniforms.arcScrollSpeed={value:Number(scrollSpeedInput.value)};
         shader.uniforms.arcScrollScale={value:Number(scrollScaleInput.value)};
@@ -363,7 +364,8 @@ loader.load(modelUrl,async(model)=>{
       if(activeWeapon==='m4'){
         // Integrated into the base material to avoid duplicate-surface depth flicker.
         mat.onBeforeCompile=(shader)=>{
-          applyToonShader(shader);\n          shader.uniforms.m4ArcwaveTime=arcwaveTimeUniform;
+          applyToonShader(shader);
+          shader.uniforms.m4ArcwaveTime=arcwaveTimeUniform;
           shader.uniforms.m4ArcwaveEnabled={value:scrollEnabledInput.checked?1:0};
           shader.vertexShader=shader.vertexShader.replace(
             '#include <common>',
@@ -459,7 +461,8 @@ loader.load(modelUrl,async(model)=>{
   defaultCameraPosition=camera.position.clone();
   controls.target.set(0,0,0);controls.update();
   modelInfo.innerHTML='Meshes: '+meshCount+'<br>Vertices: '+vertexCount.toLocaleString()+'<br>Triangles: '+Math.floor(faceCount).toLocaleString()+'<br>Size: '+size.x.toFixed(3)+' × '+size.y.toFixed(3)+' × '+size.z.toFixed(3)+' units';
-  updateShaderMode();\n  status.textContent=activeWeapon==='m4'?'M4 loaded · Arcwave plasma active':'Model loaded · colour '+(color?'loaded':'missing')+' · scroll texture not configured';
+  updateShaderMode();
+  status.textContent=activeWeapon==='m4'?'M4 loaded · Arcwave plasma active':'Model loaded · colour '+(color?'loaded':'missing')+' · scroll texture not configured';
 },undefined,error=>{console.error(error);status.textContent='Could not load '+(activeWeapon==='m4'?'M4 model from Magical298/m4':'arcwave.fbx')+' — check the file and GitHub Pages deployment.';});
 function applyBrightness(){
   const value=Number(brightnessInput.value);
