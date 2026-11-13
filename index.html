@@ -45,7 +45,14 @@ h1{font-size:22px;margin:0 0 5px;letter-spacing:.04em}p{margin:0;color:#9fb4ce;f
   <label class="control"><span>Weapon</span><select id="weaponSelect"><option value="deagle">Desert Eagle</option><option value="m4">M4</option></select></label>
   <label class="control"><span>Brightness</span><span style="display:flex;align-items:center;gap:6px"><input id="brightness" type="range" min="0.5" max="3" step="0.1" value="1.2"><span id="brightnessValue">1.2×</span></span></label>
   <label class="control"><span>Show textures</span><input id="textures" type="checkbox" checked></label>
-  <label class="control"><span>Shader</span><input id="scrollEnabled" type="checkbox" checked></label>
+  <label class="control"><span>Shader enabled</span><input id="scrollEnabled" type="checkbox" checked></label>
+  <label class="control"><span>Shader style</span><select id="shaderMode"><option value="arcwave">Arcwave</option><option value="toon">Toon / cel-shaded</option></select></label>
+  <div id="toonControls" style="display:none">
+    <label class="control"><span>Outline colour</span><select id="toonOutlineColour"><option value="#10131c">Ink black</option><option value="#ffffff">White</option><option value="#172b55">Navy</option></select></label>
+    <label class="control"><span>Outline thickness</span><input id="toonOutlineWidth" type="range" min="1" max="8" step="1" value="3"></label>
+    <label class="control"><span>Shading bands</span><input id="toonBands" type="range" min="2" max="6" step="1" value="4"></label>
+    <label class="control"><span>Soft transitions</span><input id="toonSoftness" type="range" min="0" max="0.45" step="0.05" value="0"></label>
+  </div>
   <label class="control" style="display:none"><span>Scroll direction</span><select id="scrollDirection"><option value="0">Original (Z axis)</option><option value="1">X axis</option><option value="2">Y axis</option><option value="3">All axes</option></select></label>
   <label class="control" style="display:none"><span>Blue energy pulse</span><input id="pulseEnabled" type="checkbox" checked></label>
   <label class="control" style="display:none"><span>Pulse strength</span><input id="pulseStrength" type="range" min="0" max="1" step="0.05" value="0.35"></label>
@@ -142,7 +149,60 @@ const activeWeapon=new URLSearchParams(location.search).get('weapon')==='m4'?'m4
 weaponSelect.value=activeWeapon;
 document.getElementById('pageTitle').textContent=activeWeapon==='m4'?'ARCWAVE · M4':'ARCWAVE · DESERT EAGLE';
 weaponSelect.addEventListener('change',()=>{const url=new URL(location.href);if(weaponSelect.value==='m4')url.searchParams.set('weapon','m4');else url.searchParams.delete('weapon');location.href=url.toString();});
-let modelRoot=null, modelMaterials=[], defaultCameraPosition=null, scrollShaders=[], wireframeOverlays=[], loadedTextures={color:null};
+let modelRoot=null, modelMaterials=[], defaultCameraPosition=null, scrollShaders=[], wireframeOverlays=[], toonOutlines=[], loadedTextures={color:null};
+const shaderModeInput=document.getElementById('shaderMode');
+const toonControls=document.getElementById('toonControls');
+const toonOutlineColourInput=document.getElementById('toonOutlineColour');
+const toonOutlineWidthInput=document.getElementById('toonOutlineWidth');
+const toonBandsInput=document.getElementById('toonBands');
+const toonSoftnessInput=document.getElementById('toonSoftness');
+function applyToonShader(shader){
+  shader.uniforms.toonEnabled={value:shaderModeInput.value==='toon'&&scrollEnabledInput.checked?1:0};
+  shader.uniforms.toonBands={value:Number(toonBandsInput.value)};
+  shader.uniforms.toonSoftness={value:Number(toonSoftnessInput.value)};
+  shader.fragmentShader=shader.fragmentShader.replace(
+    '#include <common>',
+    '#include <common>\\nuniform float toonEnabled;\\nuniform float toonBands;\\nuniform float toonSoftness;'
+  ).replace(
+    '#include <lights_fragment_end>',
+    `#include <lights_fragment_end>
+    if(toonEnabled>0.5){
+      vec3 toonDiffuse=reflectedLight.directDiffuse+reflectedLight.indirectDiffuse;
+      float toonLuma=dot(toonDiffuse,vec3(0.2126,0.7152,0.0722));
+      float toonSteps=max(toonBands-1.0,1.0);
+      float toonPosition=clamp(toonLuma,0.0,1.0)*toonSteps;
+      float toonBase=floor(toonPosition)/toonSteps;
+      float toonNext=min(ceil(toonPosition)/toonSteps,1.0);
+      float toonFraction=fract(toonPosition);
+      float toonBlend=toonSoftness<0.001?step(0.5,toonFraction):smoothstep(0.5-toonSoftness,0.5+toonSoftness,toonFraction);
+      float toonLevel=mix(toonBase,toonNext,toonBlend);
+      float toonScale=toonLevel/max(toonLuma,0.0001);
+      reflectedLight.directDiffuse*=toonScale;
+      reflectedLight.indirectDiffuse*=toonScale;
+    }`
+  );
+}
+function updateShaderMode(){
+  const toon=shaderModeInput.value==='toon';
+  toonControls.style.display=toon?'block':'none';
+  for(const shader of scrollShaders){
+    if(shader.uniforms?.toonEnabled)shader.uniforms.toonEnabled.value=toon&&scrollEnabledInput.checked?1:0;
+    if(shader.uniforms?.toonBands)shader.uniforms.toonBands.value=Number(toonBandsInput.value);
+    if(shader.uniforms?.toonSoftness)shader.uniforms.toonSoftness.value=Number(toonSoftnessInput.value);
+  }
+  const colour=new THREE.Color(toonOutlineColourInput.value);
+  const width=1+Number(toonOutlineWidthInput.value)*0.0018;
+  for(const outline of toonOutlines){
+    outline.visible=toon&&scrollEnabledInput.checked;
+    outline.material.color.copy(colour);
+    outline.scale.setScalar(width);
+  }
+}
+shaderModeInput.addEventListener('change',updateShaderMode);
+toonOutlineColourInput.addEventListener('input',updateShaderMode);
+toonOutlineWidthInput.addEventListener('input',updateShaderMode);
+toonBandsInput.addEventListener('input',updateShaderMode);
+toonSoftnessInput.addEventListener('input',updateShaderMode);
 const arcwaveTimeUniform={value:0};
 const pulseEnabledInput=document.getElementById('pulseEnabled');
 const pulseStrengthInput=document.getElementById('pulseStrength');
@@ -219,7 +279,7 @@ loader.load(modelUrl,async(model)=>{
       mat.userData.originalNormal=mat.normalMap||null;
       mat.userData.originalRoughness=mat.roughnessMap||null;
       if(activeWeapon==='deagle')mat.onBeforeCompile=(shader)=>{
-        shader.uniforms.arcScrollMap={value:scroll};
+        applyToonShader(shader);\n        shader.uniforms.arcScrollMap={value:scroll};
         shader.uniforms.arcScrollTime=arcwaveTimeUniform;
         shader.uniforms.arcScrollSpeed={value:Number(scrollSpeedInput.value)};
         shader.uniforms.arcScrollScale={value:Number(scrollScaleInput.value)};
@@ -303,7 +363,7 @@ loader.load(modelUrl,async(model)=>{
       if(activeWeapon==='m4'){
         // Integrated into the base material to avoid duplicate-surface depth flicker.
         mat.onBeforeCompile=(shader)=>{
-          shader.uniforms.m4ArcwaveTime=arcwaveTimeUniform;
+          applyToonShader(shader);\n          shader.uniforms.m4ArcwaveTime=arcwaveTimeUniform;
           shader.uniforms.m4ArcwaveEnabled={value:scrollEnabledInput.checked?1:0};
           shader.vertexShader=shader.vertexShader.replace(
             '#include <common>',
@@ -383,6 +443,14 @@ loader.load(modelUrl,async(model)=>{
     wireOverlay.frustumCulled=false;
     obj.add(wireOverlay);
     wireframeOverlays.push(wireOverlay);
+    const outlineMaterial=new THREE.MeshBasicMaterial({color:toonOutlineColourInput.value,side:THREE.BackSide,depthWrite:false,depthTest:true,toneMapped:false});
+    const outlineMesh=new THREE.Mesh(geometry,outlineMaterial);
+    outlineMesh.name='Toon ink outline';
+    outlineMesh.visible=false;
+    outlineMesh.renderOrder=0;
+    outlineMesh.frustumCulled=false;
+    obj.add(outlineMesh);
+    toonOutlines.push(outlineMesh);
   }
   const box=new THREE.Box3().setFromObject(model), size=box.getSize(new THREE.Vector3()), center=box.getCenter(new THREE.Vector3());
   model.position.sub(center);scene.add(model);modelRoot=model;
@@ -391,7 +459,7 @@ loader.load(modelUrl,async(model)=>{
   defaultCameraPosition=camera.position.clone();
   controls.target.set(0,0,0);controls.update();
   modelInfo.innerHTML='Meshes: '+meshCount+'<br>Vertices: '+vertexCount.toLocaleString()+'<br>Triangles: '+Math.floor(faceCount).toLocaleString()+'<br>Size: '+size.x.toFixed(3)+' × '+size.y.toFixed(3)+' × '+size.z.toFixed(3)+' units';
-  status.textContent=activeWeapon==='m4'?'M4 loaded · Arcwave plasma active':'Model loaded · colour '+(color?'loaded':'missing')+' · scroll texture not configured';
+  updateShaderMode();\n  status.textContent=activeWeapon==='m4'?'M4 loaded · Arcwave plasma active':'Model loaded · colour '+(color?'loaded':'missing')+' · scroll texture not configured';
 },undefined,error=>{console.error(error);status.textContent='Could not load '+(activeWeapon==='m4'?'M4 model from Magical298/m4':'arcwave.fbx')+' — check the file and GitHub Pages deployment.';});
 function applyBrightness(){
   const value=Number(brightnessInput.value);
@@ -400,7 +468,7 @@ function applyBrightness(){
   hemi.intensity=2*value;key.intensity=3*value;rim.intensity=2.5*value;
 }
 brightnessInput.addEventListener('input',applyBrightness);
-function updateScrollSettings(){for(const shader of scrollShaders){if(!shader.uniforms)continue;const enabled=scrollEnabledInput.checked?1:0;if(shader.uniforms.arcScrollEnabled)shader.uniforms.arcScrollEnabled.value=enabled;if(shader.uniforms.m4ArcwaveEnabled)shader.uniforms.m4ArcwaveEnabled.value=enabled;if(shader.uniforms.arcScrollSpeed)shader.uniforms.arcScrollSpeed.value=Number(scrollSpeedInput.value);if(shader.uniforms.arcScrollScale)shader.uniforms.arcScrollScale.value=Number(scrollScaleInput.value);if(shader.uniforms.arcScrollDirection)shader.uniforms.arcScrollDirection.value=Number(scrollDirectionInput.value);if(shader.uniforms.arcScrollReverse)shader.uniforms.arcScrollReverse.value=scrollReverseInput.checked?1:0;if(shader.uniforms.arcScrollVisibility)shader.uniforms.arcScrollVisibility.value=Number(scrollVisibilityInput.value);if(shader.uniforms.arcPulseEnabled)shader.uniforms.arcPulseEnabled.value=pulseEnabledInput.checked?1:0;if(shader.uniforms.arcPulseStrength)shader.uniforms.arcPulseStrength.value=Number(pulseStrengthInput.value);}}
+function updateScrollSettings(){for(const shader of scrollShaders){if(shader.uniforms?.toonEnabled)shader.uniforms.toonEnabled.value=shaderModeInput.value==='toon'&&scrollEnabledInput.checked?1:0;if(!shader.uniforms)continue;const enabled=scrollEnabledInput.checked?1:0;if(shader.uniforms.arcScrollEnabled)shader.uniforms.arcScrollEnabled.value=enabled;if(shader.uniforms.m4ArcwaveEnabled)shader.uniforms.m4ArcwaveEnabled.value=enabled;if(shader.uniforms.arcScrollSpeed)shader.uniforms.arcScrollSpeed.value=Number(scrollSpeedInput.value);if(shader.uniforms.arcScrollScale)shader.uniforms.arcScrollScale.value=Number(scrollScaleInput.value);if(shader.uniforms.arcScrollDirection)shader.uniforms.arcScrollDirection.value=Number(scrollDirectionInput.value);if(shader.uniforms.arcScrollReverse)shader.uniforms.arcScrollReverse.value=scrollReverseInput.checked?1:0;if(shader.uniforms.arcScrollVisibility)shader.uniforms.arcScrollVisibility.value=Number(scrollVisibilityInput.value);if(shader.uniforms.arcPulseEnabled)shader.uniforms.arcPulseEnabled.value=pulseEnabledInput.checked?1:0;if(shader.uniforms.arcPulseStrength)shader.uniforms.arcPulseStrength.value=Number(pulseStrengthInput.value);}}
 scrollEnabledInput.addEventListener('change',updateScrollSettings);
 scrollSpeedInput.addEventListener('input',updateScrollSettings);
 scrollScaleInput.addEventListener('input',updateScrollSettings);
