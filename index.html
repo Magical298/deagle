@@ -168,8 +168,9 @@ const hemi=new THREE.HemisphereLight(0x9bcaff,0x182235,2);scene.add(hemi);
 const key=new THREE.DirectionalLight(0xffffff,3);key.position.set(4,7,5);scene.add(key);
 const rim=new THREE.DirectionalLight(0x168cff,2.5);rim.position.set(-5,2,-4);scene.add(rim);
 const floor=new THREE.Mesh(new THREE.PlaneGeometry(200,200),new THREE.MeshStandardMaterial({color:0x0b1728,metalness:.25,roughness:.7}));
-floor.rotation.x=-Math.PI/2;floor.position.y=-1.2;scene.add(floor);
-const grid=new THREE.GridHelper(30,30,0x18385a,0x10243b);grid.position.y=-1.19;scene.add(grid);
+floor.rotation.x=-Math.PI/2;floor.position.y=-1.2;floor.visible=false;scene.add(floor);
+const grid=new THREE.GridHelper(30,30,0x18385a,0x10243b);grid.position.y=-1.19;grid.visible=false;scene.add(grid);
+gridToggle.checked=false;
 const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.06;
 controls.target.set(0,0,0);
 
