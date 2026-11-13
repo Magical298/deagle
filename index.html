@@ -469,7 +469,7 @@ function applyBrightness(){
 }
 brightnessInput.addEventListener('input',applyBrightness);
 function updateScrollSettings(){for(const shader of scrollShaders){if(shader.uniforms?.toonEnabled)shader.uniforms.toonEnabled.value=shaderModeInput.value==='toon'&&scrollEnabledInput.checked?1:0;if(!shader.uniforms)continue;const enabled=scrollEnabledInput.checked?1:0;if(shader.uniforms.arcScrollEnabled)shader.uniforms.arcScrollEnabled.value=enabled;if(shader.uniforms.m4ArcwaveEnabled)shader.uniforms.m4ArcwaveEnabled.value=enabled;if(shader.uniforms.arcScrollSpeed)shader.uniforms.arcScrollSpeed.value=Number(scrollSpeedInput.value);if(shader.uniforms.arcScrollScale)shader.uniforms.arcScrollScale.value=Number(scrollScaleInput.value);if(shader.uniforms.arcScrollDirection)shader.uniforms.arcScrollDirection.value=Number(scrollDirectionInput.value);if(shader.uniforms.arcScrollReverse)shader.uniforms.arcScrollReverse.value=scrollReverseInput.checked?1:0;if(shader.uniforms.arcScrollVisibility)shader.uniforms.arcScrollVisibility.value=Number(scrollVisibilityInput.value);if(shader.uniforms.arcPulseEnabled)shader.uniforms.arcPulseEnabled.value=pulseEnabledInput.checked?1:0;if(shader.uniforms.arcPulseStrength)shader.uniforms.arcPulseStrength.value=Number(pulseStrengthInput.value);}}
-scrollEnabledInput.addEventListener('change',updateScrollSettings);
+scrollEnabledInput.addEventListener('change',()=>{updateScrollSettings();updateShaderMode();});
 scrollSpeedInput.addEventListener('input',updateScrollSettings);
 scrollScaleInput.addEventListener('input',updateScrollSettings);
 scrollVisibilityInput.addEventListener('input',updateScrollSettings);
@@ -480,7 +480,7 @@ pulseStrengthInput.addEventListener('input',updateScrollSettings);
 document.getElementById('resetShaderSettings').addEventListener('click',()=>{
   scrollEnabledInput.checked=true;scrollDirectionInput.value='0';scrollReverseInput.checked=false;scrollPausedInput.checked=false;pulseEnabledInput.checked=true;pulseStrengthInput.value='0.35';
   scrollSpeedInput.value='0.8';scrollVisibilityInput.value='1';scrollScaleInput.value='4';
-  scrollElapsed=0;updateScrollSettings();status.textContent='Shader settings reset to defaults.';
+  scrollElapsed=0;updateScrollSettings();updateShaderMode();status.textContent='Shader settings reset to defaults.';
 });
 
 const PRESET_STORAGE_KEY='arcwaveMaterialPresets';
