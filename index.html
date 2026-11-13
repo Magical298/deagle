@@ -216,6 +216,9 @@ loader.load(modelUrl,async(model)=>{
       if(color){
         mat.map=color;
         if(mat.color)mat.color.set(0xffffff);
+        // FBX materials may have been created without a colour map. Recompile
+        // so Three.js enables the USE_MAP shader path for the supplied PNG.
+        mat.needsUpdate=true;
       }
       if('metalness' in mat)mat.metalness=Number(metalnessInput.value);
       if('roughness' in mat)mat.roughness=Number(roughnessInput.value);
@@ -550,6 +553,6 @@ document.getElementById('resetView').addEventListener('click',()=>{
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 const scrollClock=new THREE.Clock();
 let scrollElapsed=0;
-function animate(){requestAnimationFrame(animate);const delta=scrollClock.getDelta();if(!scrollPausedInput.checked)scrollElapsed+=delta;for(const shader of scrollShaders){if(shader.uniforms?.arcScrollTime)shader.uniforms.arcScrollTime.value=scrollElapsed;}for(const overlay of wireframeOverlays){const timeUniform=overlay.material?.uniforms?.uTime;if(timeUniform)timeUniform.value=scrollElapsed;}controls.update();renderer.render(scene,camera);}animate();
+function animate(){requestAnimationFrame(animate);const delta=scrollClock.getDelta();if(!scrollPausedInput.checked)scrollElapsed+=delta;for(const shader of scrollShaders){if(shader.uniforms?.arcScrollTime)shader.uniforms.arcScrollTime.value=scrollElapsed;if(shader.uniforms?.m4ArcwaveTime)shader.uniforms.m4ArcwaveTime.value=scrollElapsed;}for(const overlay of wireframeOverlays){const timeUniform=overlay.material?.uniforms?.uTime;if(timeUniform)timeUniform.value=scrollElapsed;}controls.update();renderer.render(scene,camera);}animate();
 </script>
 </body></html>
