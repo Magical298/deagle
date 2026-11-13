@@ -174,7 +174,7 @@ const loadTexture=(file)=>new Promise((resolve)=>dds.load('./'+file,resolve,unde
 const loader=new FBXLoader();
 const modelUrl=activeWeapon==='m4'?'https://raw.githubusercontent.com/Magical298/m4/main/viewmodel_m4.fbx':'./arcwave.fbx';
 loader.load(modelUrl,async(model)=>{
-  const color=activeWeapon==='m4'?null:await loadTexture('deagle_arcwave_color.dds');
+  const color=activeWeapon==='m4'?await new THREE.TextureLoader().loadAsync('https://raw.githubusercontent.com/Magical298/m4/main/weapon_m4_col.png').catch(error=>{console.error('M4 colour texture failed to load',error);return null;}):await loadTexture('deagle_arcwave_color.dds');
   // The optional Arcwave scroll texture was removed from the repository.
   const scroll=null;
   if(color){color.colorSpace=THREE.SRGBColorSpace;color.flipY=false;}
