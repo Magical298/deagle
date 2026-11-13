@@ -274,10 +274,6 @@ loader.load(modelUrl,async(model)=>{
         if (arcScrollEnabled > 0.5) {
           totalEmissiveRadiance += vec3(0.0, 0.3, 1.0) * arcEnergyMask * arcScrollVisibility * 3.0;
         }
-        if (arcPulseEnabled > 0.5) {
-          float arcEnergyPulse = 0.5 + 0.5 * sin(arcScrollTime * 4.0);
-          totalEmissiveRadiance += vec3(0.0, 0.35, 1.0) * arcEnergyPulse * arcPulseStrength * 2.0;
-        }
         // Same animated cyan/violet plasma used on the M4, integrated into
         // the Deagle's existing material to avoid a second-mesh depth conflict.
         float deaglePhase=arcScrollTime*0.8;
@@ -372,8 +368,7 @@ totalEmissiveRadiance+=m4Plasma*1.6;`
         uniform float uGlow;
         uniform float uTime;
         void main(){
-          float pulse=0.82+0.18*sin(uTime*2.5);
-          float intensity=1.0+uGlow*pulse;
+          float intensity=1.0+uGlow;
           float lineAlpha=clamp(0.72+uThickness*0.08,0.0,1.0);
           gl_FragColor=vec4(uColor*intensity,lineAlpha);
         }`,
