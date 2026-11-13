@@ -301,7 +301,7 @@ loader.load(modelUrl,async(model)=>{
             vec3 plasma=electricPlasma(uvX,phase)*blend.x+electricPlasma(uvY,phase)*blend.y+electricPlasma(uvZ,phase)*blend.z;
             gl_FragColor=vec4(plasma,0.35);
           }`,
-        transparent:true,depthWrite:false,depthTest:true,blending:THREE.AdditiveBlending,toneMapped:false
+        transparent:true,depthWrite:false,depthTest:true,depthFunc:THREE.LessEqualDepth,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1,blending:THREE.AdditiveBlending,toneMapped:false
       });
       const plasmaOverlay=new THREE.Mesh(geometry,plasmaMaterial);
       plasmaOverlay.name='M4 Arcwave plasma overlay';
