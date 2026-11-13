@@ -44,13 +44,13 @@ h1{font-size:22px;margin:0 0 5px;letter-spacing:.04em}p{margin:0;color:#9fb4ce;f
   <label class="control"><span>Show textures</span><input id="textures" type="checkbox" checked></label>
   <label class="control"><span>Scrolling shader</span><input id="scrollEnabled" type="checkbox" checked></label>
   <label class="control"><span>Scroll direction</span><select id="scrollDirection"><option value="0">Original (Z axis)</option><option value="1">X axis</option><option value="2">Y axis</option><option value="3">All axes</option></select></label>
-  <label class="control"><span>Blue energy pulse</span><input id="pulseEnabled" type="checkbox" checked></label>
-  <label class="control"><span>Pulse strength</span><input id="pulseStrength" type="range" min="0" max="1" step="0.05" value="0.35"></label>
-  <label class="control"><span>Reverse direction</span><input id="scrollReverse" type="checkbox"></label>
-  <label class="control"><span>Pause scrolling</span><input id="scrollPaused" type="checkbox"></label>
-  <label class="control"><span>Scroll speed</span><input id="scrollSpeed" type="range" min="0" max="3" step="0.1" value="0.8"></label>
-  <label class="control"><span>Scroll visibility</span><input id="scrollVisibility" type="range" min="0" max="1" step="0.05" value="1"></label>
-  <label class="control"><span>Texture tiling</span><input id="scrollScale" type="range" min="1" max="30" step="1" value="4"></label>
+  <label class="control" style="display:none"><span>Blue energy pulse</span><input id="pulseEnabled" type="checkbox" checked></label>
+  <label class="control" style="display:none"><span>Pulse strength</span><input id="pulseStrength" type="range" min="0" max="1" step="0.05" value="0.35"></label>
+  <label class="control" style="display:none"><span>Reverse direction</span><input id="scrollReverse" type="checkbox"></label>
+  <label class="control" style="display:none"><span>Pause scrolling</span><input id="scrollPaused" type="checkbox"></label>
+  <label class="control" style="display:none"><span>Scroll speed</span><input id="scrollSpeed" type="range" min="0" max="3" step="0.1" value="0.8"></label>
+  <label class="control" style="display:none"><span>Scroll visibility</span><input id="scrollVisibility" type="range" min="0" max="1" step="0.05" value="1"></label>
+  <label class="control" style="display:none"><span>Texture tiling</span><input id="scrollScale" type="range" min="1" max="30" step="1" value="4"></label>
   <button id="resetShaderSettings" type="button">Reset shader settings</button>
   <label class="control"><span>Wireframe shader</span><input id="wireframe" type="checkbox"></label>
   <label class="control"><span>Wireframe colour</span><select id="wireColor"><option value="#35c8ff">Arcwave blue</option><option value="#ffffff">White</option><option value="#00ff9c">Neon green</option><option value="#ffb347">Amber</option><option value="#ff3b81">Pink</option></select></label>
@@ -61,7 +61,7 @@ h1{font-size:22px;margin:0 0 5px;letter-spacing:.04em}p{margin:0;color:#9fb4ce;f
   <label class="control"><span>Background</span><select id="background"><option value="07111f">Navy</option><option value="000000">Black</option><option value="30343b">Grey</option><option value="d9e1ea">Light</option></select></label>
   <label class="control"><span>Lighting</span><select id="lighting"><option value="studio">Studio</option><option value="bright">Bright</option><option value="soft">Soft</option><option value="dramatic">Dramatic</option></select></label>
   <label class="control"><span>Texture inspection</span><select id="textureView"><option value="material">Normal material</option><option value="color">Colour map</option></select></label>
-  <div style="border-top:1px solid #29415e;margin-top:14px;padding-top:12px">
+  <div style="display:none">
     <h2 style="margin-bottom:8px">Material presets</h2>
     <label class="control"><span>Saved presets</span><select id="presetSelect"><option value="">Select a preset</option></select></label>
     <input id="presetName" type="text" maxlength="32" placeholder="Name this preset" aria-label="Preset name" style="width:100%;padding:8px;background:#14263c;color:#eaf3ff;border:1px solid #38516d;border-radius:6px">
