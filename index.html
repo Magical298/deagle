@@ -61,11 +61,10 @@ h1{font-size:22px;margin:0 0 5px;letter-spacing:.04em}p{margin:0;color:#9fb4ce;f
   <label class="control"><span>Line thickness</span><input id="wireThickness" type="range" min="1" max="8" step="0.5" value="2"></label>
   <label class="control"><span>Line glow</span><input id="wireGlow" type="range" min="0" max="4" step="0.1" value="1.8"></label>
   <div class="section-title">Scene</div>
-  <label class="control"><span>Show grid</span><input id="showGrid" type="checkbox" checked></label>
+  <label class="control"><span>Show grid</span><input id="showGrid" type="checkbox"></label>
   <label class="control"><span>Auto-rotate</span><input id="autoRotate" type="checkbox"></label>
   <label class="control"><span>Background</span><select id="background"><option value="07111f">Navy</option><option value="000000">Black</option><option value="30343b">Grey</option><option value="d9e1ea">Light</option></select></label>
   <label class="control"><span>Lighting</span><select id="lighting"><option value="studio">Studio</option><option value="bright">Bright</option><option value="soft">Soft</option><option value="dramatic">Dramatic</option></select></label>
-  <label class="control"><span>Texture inspection</span><select id="textureView"><option value="material">Normal material</option><option value="color">Colour map</option></select></label>
   <div style="display:none">
     <h2 style="margin-bottom:8px">Material presets</h2>
     <label class="control"><span>Saved presets</span><select id="presetSelect"><option value="">Select a preset</option></select></label>
@@ -127,7 +126,6 @@ const host=document.getElementById('view'), status=document.getElementById('stat
 const brightnessInput=document.getElementById('brightness');
 const brightnessValue=document.getElementById('brightnessValue');
 const lightingSelect=document.getElementById('lighting');
-const textureViewSelect=document.getElementById('textureView');
 const modelInfo=document.getElementById('modelInfo');
 const presetSelect=document.getElementById('presetSelect');
 const presetNameInput=document.getElementById('presetName');
@@ -479,12 +477,10 @@ document.getElementById('resetDefaults').addEventListener('click',()=>{
   };
   applyPreset(defaults);
   textureToggle.checked=true;
-  textureViewSelect.value='material';
-  applyTextureInspection();
   wireframeToggle.checked=false;
   updateWireframeSettings();
   wireThicknessInput.value="2";wireGlowInput.value="1.8";wireColorInput.value="#35c8ff";
-  gridToggle.checked=true;grid.visible=true;floor.visible=true;
+  gridToggle.checked=false;grid.visible=false;floor.visible=false;
   rotateToggle.checked=false;controls.autoRotate=false;
   status.textContent='Default Arcwave settings restored.';
 });
@@ -508,19 +504,16 @@ wireGlowInput.addEventListener('input',updateWireframeSettings);
 gridToggle.addEventListener('change',()=>{grid.visible=gridToggle.checked;floor.visible=gridToggle.checked;});
 rotateToggle.addEventListener('change',()=>{controls.autoRotate=rotateToggle.checked;});
 backgroundSelect.addEventListener('change',()=>{const c=new THREE.Color('#'+backgroundSelect.value);scene.background=c;});
-function applyTextureInspection(){
-  const mode=textureViewSelect.value;
+function applyTextureVisibility(){
   for(const mat of modelMaterials){
-    mat.map=textureToggle.checked?(mode==='material'?mat.userData.originalMap:(loadedTextures[mode]||null)):null;
-    mat.normalMap=textureToggle.checked&&mode==='material'?mat.userData.originalNormal:null;
-    mat.roughnessMap=textureToggle.checked&&mode==='material'?mat.userData.originalRoughness:null;
+    mat.map=textureToggle.checked?mat.userData.originalMap:null;
+    mat.normalMap=textureToggle.checked?mat.userData.originalNormal:null;
+    mat.roughnessMap=textureToggle.checked?mat.userData.originalRoughness:null;
     mat.needsUpdate=true;
   }
 }
-textureViewSelect.addEventListener('change',()=>{textureToggle.checked=true;applyTextureInspection();});
 textureToggle.addEventListener('change',()=>{
-  if(!textureToggle.checked)textureViewSelect.value='material';
-  applyTextureInspection();
+  applyTextureVisibility();
   updateScrollSettings();
 });
 lightingSelect.addEventListener('change',()=>{
