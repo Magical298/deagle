@@ -359,7 +359,7 @@ loader.load(modelUrl,async(model)=>{
         };
         mat.customProgramCacheKey=()=> 'm4-arcwave-integrated-v3';
       }
-
+      modelMaterials.push(mat);
     }
     obj.material=Array.isArray(old)?materials:materials[0];
     // Dedicated triangle-wireframe overlay. WireframeGeometry + LineSegments is
