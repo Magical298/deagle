@@ -267,12 +267,32 @@ loader.load(modelUrl,async(model)=>{
         if (arcPulseEnabled > 0.5) {
           float arcEnergyPulse = 0.5 + 0.5 * sin(arcScrollTime * 4.0);
           totalEmissiveRadiance += vec3(0.0, 0.35, 1.0) * arcEnergyPulse * arcPulseStrength * 2.0;
-        }`
+        }
+        // Same animated cyan/violet plasma used on the M4, integrated into
+        // the Deagle's existing material to avoid a second-mesh depth conflict.
+        float deaglePhase=arcScrollTime*0.8;
+        vec3 deagleN=normalize(vArcwaveLocalNormal);
+        vec3 deagleBlend=pow(max(abs(deagleN)-vec3(0.25),vec3(0.0)),vec3(1.5));
+        deagleBlend/=max(deagleBlend.x+deagleBlend.y+deagleBlend.z,0.0001);
+        vec3 deaglePos=vArcwaveLocalPosition*32.0;
+        vec2 deagleUVX=deaglePos.yz;
+        vec2 deagleUVY=deaglePos.xz;
+        vec2 deagleUVZ=deaglePos.xy;
+        float deagleFlowX=deagleUVX.x*0.22+deagleUVX.y*0.11-deaglePhase;
+        float deagleFlowY=deagleUVY.x*0.22+deagleUVY.y*0.11-deaglePhase;
+        float deagleFlowZ=deagleUVZ.x*0.22+deagleUVZ.y*0.11-deaglePhase;
+        float deagleVeinX=pow(clamp(1.0-abs(sin(deagleFlowX*6.0+sin(deagleUVX.y*0.55+sin(deagleUVX.x*0.31-deaglePhase*0.7)*1.8+deaglePhase*1.6)*2.0)),0.0,1.0),10.0);
+        float deagleVeinY=pow(clamp(1.0-abs(sin(deagleFlowY*6.0+sin(deagleUVY.y*0.55+sin(deagleUVY.x*0.31-deaglePhase*0.7)*1.8+deaglePhase*1.6)*2.0)),0.0,1.0),10.0);
+        float deagleVeinZ=pow(clamp(1.0-abs(sin(deagleFlowZ*6.0+sin(deagleUVZ.y*0.55+sin(deagleUVZ.x*0.31-deaglePhase*0.7)*1.8+deaglePhase*1.6)*2.0)),0.0,1.0),10.0);
+        float deagleGlow=deagleVeinX*deagleBlend.x+deagleVeinY*deagleBlend.y+deagleVeinZ*deagleBlend.z;
+        float deagleHue=0.5+0.5*sin((deagleFlowX*deagleBlend.x+deagleFlowY*deagleBlend.y+deagleFlowZ*deagleBlend.z)*1.5-deaglePhase*0.8);
+        vec3 deagleEnergy=mix(vec3(0.02,0.65,1.0),vec3(0.42,0.05,1.0),deagleHue);
+        totalEmissiveRadiance+=deagleEnergy*(0.18+deagleGlow*1.4)*1.6;`
       );
       status.textContent=activeWeapon==='m4'?'M4 loaded · Arcwave plasma shader active':'Model loaded · Arcwave procedural shader active';
       scrollShaders.push(shader);
     };
-    if(activeWeapon==='deagle')mat.customProgramCacheKey=()=> 'arcwave-cod4-triplanar-port-v1';
+    if(activeWeapon==='deagle')mat.customProgramCacheKey=()=> 'deagle-m4-style-integrated-plasma-v1';
     if(activeWeapon==='m4'){
       // Render Arcwave inside the original material shader. A second mesh on
       // the exact same geometry can cause patchy depth-buffer flicker.
