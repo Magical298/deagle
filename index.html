@@ -213,7 +213,6 @@ loader.load(modelUrl,async(model)=>{
       // Keep the FBX's original material type and surface settings. The external
       // colour texture is applied as its albedo map instead of replacing the
       // whole material with a generic MeshPhysicalMaterial.
-      const mat=old&&old.isMaterial?old.clone():new THREE.MeshPhysicalMaterial();
       if(color){
         mat.map=color;
         if(mat.color)mat.color.set(0xffffff);
