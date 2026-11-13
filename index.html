@@ -44,10 +44,6 @@ h1{font-size:22px;margin:0 0 5px;letter-spacing:.04em}p{margin:0;color:#9fb4ce;f
   <h2>Preview settings</h2>
   <label class="control"><span>Weapon</span><select id="weaponSelect"><option value="deagle">Desert Eagle</option><option value="m4">M4</option></select></label>
   <label class="control"><span>Brightness</span><span style="display:flex;align-items:center;gap:6px"><input id="brightness" type="range" min="0.5" max="3" step="0.1" value="1.2"><span id="brightnessValue">1.2×</span></span></label>
-  <label class="control"><span>Reflections</span><input id="reflectionStrength" type="range" min="0" max="2.5" step="0.05" value="1.2"></label>
-  <label class="control"><span>Metalness</span><input id="metalness" type="range" min="0" max="1" step="0.01" value="0.85"></label>
-  <label class="control"><span>Roughness</span><input id="roughness" type="range" min="0.05" max="1" step="0.01" value="0.32"></label>
-  <label class="control"><span>Clearcoat</span><input id="clearcoat" type="range" min="0" max="1" step="0.01" value="0.35"></label>
   <label class="control"><span>Show textures</span><input id="textures" type="checkbox" checked></label>
   <label class="control"><span>Shader</span><input id="scrollEnabled" type="checkbox" checked></label>
   <label class="control" style="display:none"><span>Scroll direction</span><select id="scrollDirection"><option value="0">Original (Z axis)</option><option value="1">X axis</option><option value="2">Y axis</option><option value="3">All axes</option></select></label>
@@ -127,10 +123,6 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 const host=document.getElementById('view'), status=document.getElementById('status');
 const brightnessInput=document.getElementById('brightness');
 const brightnessValue=document.getElementById('brightnessValue');
-const reflectionStrengthInput=document.getElementById('reflectionStrength');
-const metalnessInput=document.getElementById('metalness');
-const roughnessInput=document.getElementById('roughness');
-const clearcoatInput=document.getElementById('clearcoat');
 const lightingSelect=document.getElementById('lighting');
 const textureViewSelect=document.getElementById('textureView');
 const modelInfo=document.getElementById('modelInfo');
@@ -221,10 +213,6 @@ loader.load(modelUrl,async(model)=>{
         // so Three.js enables the USE_MAP shader path for the supplied PNG.
         mat.needsUpdate=true;
       }
-      if('metalness' in mat)mat.metalness=Number(metalnessInput.value);
-      if('roughness' in mat)mat.roughness=Number(roughnessInput.value);
-      if('envMapIntensity' in mat)mat.envMapIntensity=Number(reflectionStrengthInput.value);
-      if('clearcoat' in mat)mat.clearcoat=Number(clearcoatInput.value);
       mat.userData.originalMap=mat.map;
       mat.userData.originalNormal=mat.normalMap||null;
       mat.userData.originalRoughness=mat.roughnessMap||null;
@@ -418,10 +406,6 @@ function applyBrightness(){
   hemi.intensity=2*value;key.intensity=3*value;rim.intensity=2.5*value;
 }
 brightnessInput.addEventListener('input',applyBrightness);
-reflectionStrengthInput.addEventListener('input',()=>{for(const mat of modelMaterials)mat.envMapIntensity=Number(reflectionStrengthInput.value);});
-metalnessInput.addEventListener('input',()=>{for(const mat of modelMaterials)mat.metalness=Number(metalnessInput.value);});
-roughnessInput.addEventListener('input',()=>{for(const mat of modelMaterials)mat.roughness=Number(roughnessInput.value);});
-clearcoatInput.addEventListener('input',()=>{for(const mat of modelMaterials)mat.clearcoat=Number(clearcoatInput.value);});
 function updateScrollSettings(){for(const shader of scrollShaders){if(!shader.uniforms)continue;const enabled=scrollEnabledInput.checked?1:0;if(shader.uniforms.arcScrollEnabled)shader.uniforms.arcScrollEnabled.value=enabled;if(shader.uniforms.m4ArcwaveEnabled)shader.uniforms.m4ArcwaveEnabled.value=enabled;if(shader.uniforms.arcScrollSpeed)shader.uniforms.arcScrollSpeed.value=Number(scrollSpeedInput.value);if(shader.uniforms.arcScrollScale)shader.uniforms.arcScrollScale.value=Number(scrollScaleInput.value);if(shader.uniforms.arcScrollDirection)shader.uniforms.arcScrollDirection.value=Number(scrollDirectionInput.value);if(shader.uniforms.arcScrollReverse)shader.uniforms.arcScrollReverse.value=scrollReverseInput.checked?1:0;if(shader.uniforms.arcScrollVisibility)shader.uniforms.arcScrollVisibility.value=Number(scrollVisibilityInput.value);if(shader.uniforms.arcPulseEnabled)shader.uniforms.arcPulseEnabled.value=pulseEnabledInput.checked?1:0;if(shader.uniforms.arcPulseStrength)shader.uniforms.arcPulseStrength.value=Number(pulseStrengthInput.value);}}
 scrollEnabledInput.addEventListener('change',updateScrollSettings);
 scrollSpeedInput.addEventListener('input',updateScrollSettings);
@@ -438,7 +422,7 @@ document.getElementById('resetShaderSettings').addEventListener('click',()=>{
 });
 
 const PRESET_STORAGE_KEY='arcwaveMaterialPresets';
-const presetFields=['brightness','reflectionStrength','metalness','roughness','clearcoat','scrollEnabled','scrollDirection','scrollReverse','scrollPaused','scrollSpeed','scrollVisibility','scrollScale','pulseEnabled','pulseStrength','lighting','background'];
+const presetFields=['brightness','scrollEnabled','scrollDirection','scrollReverse','scrollPaused','scrollSpeed','scrollVisibility','scrollScale','pulseEnabled','pulseStrength','lighting','background'];
 function readPresets(){
   try{return JSON.parse(localStorage.getItem(PRESET_STORAGE_KEY)||'{}')||{};}
   catch(error){console.warn('Could not read saved presets',error);return {};}
@@ -494,7 +478,7 @@ refreshPresetList();
 
 document.getElementById('resetDefaults').addEventListener('click',()=>{
   const defaults={
-    brightness:'1.2',reflectionStrength:'1.2',metalness:'0.85',roughness:'0.32',clearcoat:'0.35',
+    brightness:'1.2',
     scrollEnabled:true,scrollDirection:'0',scrollReverse:false,scrollPaused:false,scrollSpeed:'0.8',scrollVisibility:'1',scrollScale:'4',pulseEnabled:true,pulseStrength:'0.35',
     lighting:'studio',background:'07111f'
   };
