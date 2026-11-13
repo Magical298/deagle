@@ -368,14 +368,15 @@ loader.load(modelUrl,async(model)=>{
       linewidth:Number(wireThicknessInput.value),
       worldUnits:false,
       transparent:true,
-      opacity:0.9,
+      opacity:1,
+      alphaToCoverage:true,
       depthWrite:false,
-      depthTest:false,
-      blending:THREE.AdditiveBlending,
+      depthTest:true,
+      blending:THREE.NormalBlending,
       toneMapped:false
     });
     wireMaterial.resolution.set(innerWidth,innerHeight);
-    wireMaterial.userData.baseOpacity=0.9;
+    wireMaterial.userData.baseOpacity=1;
     const wireOverlay=new LineSegments2(thickGeometry,wireMaterial);
     wireOverlay.name='Arcwave wireframe shader overlay';
     wireOverlay.visible=wireframeToggle.checked;
@@ -496,7 +497,7 @@ function updateWireframeSettings(){
     overlay.visible=wireframeToggle.checked;
     overlay.material.color.copy(colour);
     overlay.material.linewidth=thickness;
-    overlay.material.opacity=Math.min(1,0.72+glow*0.08);
+    overlay.material.opacity=Math.min(1,0.65+glow*0.0875);
     overlay.material.needsUpdate=true;
   }
 }
