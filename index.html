@@ -49,7 +49,7 @@ h1{font-size:22px;margin:0 0 5px;letter-spacing:.04em}p{margin:0;color:#9fb4ce;f
   <label class="control"><span>Roughness</span><input id="roughness" type="range" min="0.05" max="1" step="0.01" value="0.32"></label>
   <label class="control"><span>Clearcoat</span><input id="clearcoat" type="range" min="0" max="1" step="0.01" value="0.35"></label>
   <label class="control"><span>Show textures</span><input id="textures" type="checkbox" checked></label>
-  <label class="control"><span>Scrolling shader</span><input id="scrollEnabled" type="checkbox" checked></label>
+  <label class="control"><span>Shader</span><input id="scrollEnabled" type="checkbox" checked></label>
   <label class="control" style="display:none"><span>Scroll direction</span><select id="scrollDirection"><option value="0">Original (Z axis)</option><option value="1">X axis</option><option value="2">Y axis</option><option value="3">All axes</option></select></label>
   <label class="control" style="display:none"><span>Blue energy pulse</span><input id="pulseEnabled" type="checkbox" checked></label>
   <label class="control" style="display:none"><span>Pulse strength</span><input id="pulseStrength" type="range" min="0" max="1" step="0.05" value="0.35"></label>
@@ -276,6 +276,7 @@ loader.load(modelUrl,async(model)=>{
         }
         // Same animated cyan/violet plasma used on the M4, integrated into
         // the Deagle's existing material to avoid a second-mesh depth conflict.
+        if (arcScrollEnabled > 0.5) {
         float deaglePhase=arcScrollTime*0.8;
         vec3 deagleN=normalize(vArcwaveLocalNormal);
         vec3 deagleBlend=pow(max(abs(deagleN)-vec3(0.25),vec3(0.0)),vec3(1.5));
@@ -293,7 +294,8 @@ loader.load(modelUrl,async(model)=>{
         float deagleGlow=deagleVeinX*deagleBlend.x+deagleVeinY*deagleBlend.y+deagleVeinZ*deagleBlend.z;
         float deagleHue=0.5+0.5*sin((deagleFlowX*deagleBlend.x+deagleFlowY*deagleBlend.y+deagleFlowZ*deagleBlend.z)*1.5-deaglePhase*0.8);
         vec3 deagleEnergy=mix(vec3(0.02,0.65,1.0),vec3(0.42,0.05,1.0),deagleHue);
-        totalEmissiveRadiance+=deagleEnergy*(0.18+deagleGlow*1.4)*1.6;`
+        totalEmissiveRadiance+=deagleEnergy*(0.18+deagleGlow*1.4)*1.6;
+        }`
       );
       status.textContent=activeWeapon==='m4'?'M4 loaded · Arcwave plasma shader active':'Model loaded · Arcwave procedural shader active';
       scrollShaders.push(shader);
@@ -303,6 +305,7 @@ loader.load(modelUrl,async(model)=>{
       // Integrated into the base material to avoid duplicate-surface depth flicker.
       mat.onBeforeCompile=(shader)=>{
         shader.uniforms.m4ArcwaveTime={value:0};
+        shader.uniforms.m4ArcwaveEnabled={value:scrollEnabledInput.checked?1:0};
         shader.vertexShader=shader.vertexShader.replace(
           '#include <common>',
           `#include <common>
@@ -318,6 +321,7 @@ vM4ArcNormal=normal;`
           '#include <common>',
           `#include <common>
 uniform float m4ArcwaveTime;
+uniform float m4ArcwaveEnabled;
 varying vec3 vM4ArcPosition;
 varying vec3 vM4ArcNormal;
 float m4ArcSat(float x){return clamp(x,0.0,1.0);}
@@ -335,6 +339,7 @@ vec3 m4ElectricPlasma(vec2 uv,float time){
         ).replace(
           '#include <emissivemap_fragment>',
           `#include <emissivemap_fragment>
+if (m4ArcwaveEnabled > 0.5) {
 float m4Phase=m4ArcwaveTime*0.8;
 vec3 m4N=normalize(vM4ArcNormal);
 vec3 m4Blend=pow(max(abs(m4N)-vec3(0.25),vec3(0.0)),vec3(1.5));
@@ -342,9 +347,10 @@ m4Blend/=max(m4Blend.x+m4Blend.y+m4Blend.z,0.0001);
 vec3 m4Plasma=m4ElectricPlasma(vM4ArcPosition.yz*32.0,m4Phase)*m4Blend.x
   +m4ElectricPlasma(vM4ArcPosition.xz*32.0,m4Phase)*m4Blend.y
   +m4ElectricPlasma(vM4ArcPosition.xy*32.0,m4Phase)*m4Blend.z;
-totalEmissiveRadiance+=m4Plasma*1.6;`
+totalEmissiveRadiance+=m4Plasma*1.6;
+}`
         );
-        scrollShaders.push({uniforms:{arcScrollTime:shader.uniforms.m4ArcwaveTime}});
+        scrollShaders.push({uniforms:{arcScrollTime:shader.uniforms.m4ArcwaveTime,arcScrollEnabled:shader.uniforms.m4ArcwaveEnabled}});
       };
       mat.customProgramCacheKey=()=> 'm4-arcwave-integrated-v2';
     }
@@ -406,7 +412,7 @@ reflectionStrengthInput.addEventListener('input',()=>{for(const mat of modelMate
 metalnessInput.addEventListener('input',()=>{for(const mat of modelMaterials)mat.metalness=Number(metalnessInput.value);});
 roughnessInput.addEventListener('input',()=>{for(const mat of modelMaterials)mat.roughness=Number(roughnessInput.value);});
 clearcoatInput.addEventListener('input',()=>{for(const mat of modelMaterials)mat.clearcoat=Number(clearcoatInput.value);});
-function updateScrollSettings(){for(const shader of scrollShaders){if(!shader.uniforms?.arcScrollSpeed)continue;shader.uniforms.arcScrollSpeed.value=Number(scrollSpeedInput.value);shader.uniforms.arcScrollScale.value=Number(scrollScaleInput.value);shader.uniforms.arcScrollDirection.value=Number(scrollDirectionInput.value);shader.uniforms.arcScrollReverse.value=scrollReverseInput.checked?1:0;shader.uniforms.arcScrollEnabled.value=loadedTextures.scroll&&scrollEnabledInput.checked?1:0;shader.uniforms.arcScrollVisibility.value=Number(scrollVisibilityInput.value);shader.uniforms.arcPulseEnabled.value=pulseEnabledInput.checked?1:0;shader.uniforms.arcPulseStrength.value=Number(pulseStrengthInput.value);}}
+function updateScrollSettings(){for(const shader of scrollShaders){if(!shader.uniforms)continue;if(shader.uniforms.arcScrollEnabled)shader.uniforms.arcScrollEnabled.value=loadedTextures.scroll&&scrollEnabledInput.checked?1:0;if(!shader.uniforms.arcScrollSpeed)continue;shader.uniforms.arcScrollSpeed.value=Number(scrollSpeedInput.value);shader.uniforms.arcScrollScale.value=Number(scrollScaleInput.value);shader.uniforms.arcScrollDirection.value=Number(scrollDirectionInput.value);shader.uniforms.arcScrollReverse.value=scrollReverseInput.checked?1:0;shader.uniforms.arcScrollEnabled.value=loadedTextures.scroll&&scrollEnabledInput.checked?1:0;shader.uniforms.arcScrollVisibility.value=Number(scrollVisibilityInput.value);shader.uniforms.arcPulseEnabled.value=pulseEnabledInput.checked?1:0;shader.uniforms.arcPulseStrength.value=Number(pulseStrengthInput.value);}}
 scrollEnabledInput.addEventListener('change',updateScrollSettings);
 scrollSpeedInput.addEventListener('input',updateScrollSettings);
 scrollScaleInput.addEventListener('input',updateScrollSettings);
