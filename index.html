@@ -205,158 +205,164 @@ loader.load(modelUrl,async(model)=>{
     faceCount+=geometry.index?geometry.index.count/3:(geometry.attributes.position?geometry.attributes.position.count/3:0);
     obj.castShadow=true;obj.receiveShadow=true;
     const old=obj.material;
-    // Keep the FBX's original material type and surface settings. The external
-    // colour texture is applied as its albedo map instead of replacing the
-    // whole material with a generic MeshPhysicalMaterial.
-    const mat=old&&old.isMaterial?old.clone():new THREE.MeshPhysicalMaterial();
-    if(color){
-      mat.map=color;
-      if(mat.color)mat.color.set(0xffffff);
-    }
-    if('metalness' in mat)mat.metalness=Number(metalnessInput.value);
-    if('roughness' in mat)mat.roughness=Number(roughnessInput.value);
-    if('envMapIntensity' in mat)mat.envMapIntensity=Number(reflectionStrengthInput.value);
-    if('clearcoat' in mat)mat.clearcoat=Number(clearcoatInput.value);
-    mat.userData.originalMap=mat.map;
-    mat.userData.originalNormal=mat.normalMap||null;
-    mat.userData.originalRoughness=mat.roughnessMap||null;
-    if(activeWeapon==='deagle')mat.onBeforeCompile=(shader)=>{
-      shader.uniforms.arcScrollMap={value:scroll};
-      shader.uniforms.arcScrollTime={value:0};
-      shader.uniforms.arcScrollSpeed={value:Number(scrollSpeedInput.value)};
-      shader.uniforms.arcScrollScale={value:Number(scrollScaleInput.value)};
-      shader.uniforms.arcScrollDirection={value:Number(scrollDirectionInput.value)};
-      shader.uniforms.arcScrollReverse={value:scrollReverseInput.checked?1:0};
-      shader.uniforms.arcScrollEnabled={value:scrollEnabledInput.checked?1:0};
-      shader.uniforms.arcScrollVisibility={value:Number(scrollVisibilityInput.value)};
-      shader.uniforms.arcPulseEnabled={value:pulseEnabledInput.checked?1:0};
-      shader.uniforms.arcPulseStrength={value:Number(pulseStrengthInput.value)};
-      shader.vertexShader=shader.vertexShader.replace(
-        '#include <common>',
-        '#include <common>\nvarying vec3 vArcwaveLocalPosition;\nvarying vec3 vArcwaveLocalNormal;'
-      ).replace(
-        '#include <begin_vertex>',
-        '#include <begin_vertex>\nvArcwaveLocalPosition = position;\nvArcwaveLocalNormal = normal;'
-      );
-      shader.fragmentShader=shader.fragmentShader.replace(
-        '#include <common>',
-        '#include <common>\nuniform sampler2D arcScrollMap;\nuniform float arcScrollTime;\nuniform float arcScrollSpeed;\nuniform float arcScrollScale;\nuniform float arcScrollDirection;\nuniform float arcScrollReverse;\nuniform float arcScrollEnabled;\nuniform float arcScrollVisibility;\nuniform float arcPulseEnabled;\nuniform float arcPulseStrength;\nvarying vec3 vArcwaveLocalPosition;\nvarying vec3 vArcwaveLocalNormal;'
-      ).replace(
-        '#include <map_fragment>',
-        `#include <map_fragment>
-        float arcEnergyMask = 0.0;
-        if (arcScrollEnabled > 0.5) {
-          // Original COD4 Arcwave: triplanar projection from object position and surface normal.
-          vec3 arcPosition = vArcwaveLocalPosition;
-          float arcTravel = arcScrollTime * arcScrollSpeed * 0.8 * mix(1.0, -1.0, arcScrollReverse);
-          if (arcScrollDirection < 0.5) {
-            arcPosition.z += arcTravel;
-          } else if (arcScrollDirection < 1.5) {
-            arcPosition.x += arcTravel;
-          } else if (arcScrollDirection < 2.5) {
-            arcPosition.y += arcTravel;
-          } else {
-            arcPosition += vec3(arcTravel);
-          }
-          vec3 tpUVS = arcPosition * (arcScrollScale / 40.0);
-          vec3 tpBlend = pow(max(abs(normalize(vArcwaveLocalNormal)) - vec3(0.2), vec3(0.0)), vec3(1.8));
-          tpBlend /= max(tpBlend.x + tpBlend.y + tpBlend.z, 0.00001);
-          vec4 tpSample = tpBlend.x * texture2D(arcScrollMap, tpUVS.yz);
-          tpSample += tpBlend.y * texture2D(arcScrollMap, tpUVS.xz);
-          tpSample += tpBlend.z * texture2D(arcScrollMap, tpUVS.xy);
-          // COD4 uses the base colour texture alpha to blend energy texture and lit weapon colour.
-          float arcEnergyBlend = (1.0 - diffuseColor.a) * arcScrollVisibility;
-          diffuseColor.rgb = mix(diffuseColor.rgb, tpSample.rgb, arcEnergyBlend);
-          arcEnergyMask = max(max(tpSample.r, tpSample.g), tpSample.b) * arcEnergyBlend;
-        }`
-      ).replace(
-        '#include <emissivemap_fragment>',
-        `#include <emissivemap_fragment>
-        if (arcScrollEnabled > 0.5) {
-          totalEmissiveRadiance += vec3(0.0, 0.3, 1.0) * arcEnergyMask * arcScrollVisibility * 3.0;
-        }
-        // Same animated cyan/violet plasma used on the M4, integrated into
-        // the Deagle's existing material to avoid a second-mesh depth conflict.
-        if (arcScrollEnabled > 0.5) {
-        float deaglePhase=arcScrollTime*0.8;
-        vec3 deagleN=normalize(vArcwaveLocalNormal);
-        vec3 deagleBlend=pow(max(abs(deagleN)-vec3(0.25),vec3(0.0)),vec3(1.5));
-        deagleBlend/=max(deagleBlend.x+deagleBlend.y+deagleBlend.z,0.0001);
-        vec3 deaglePos=vArcwaveLocalPosition*32.0;
-        vec2 deagleUVX=deaglePos.yz;
-        vec2 deagleUVY=deaglePos.xz;
-        vec2 deagleUVZ=deaglePos.xy;
-        float deagleFlowX=deagleUVX.x*0.22+deagleUVX.y*0.11-deaglePhase;
-        float deagleFlowY=deagleUVY.x*0.22+deagleUVY.y*0.11-deaglePhase;
-        float deagleFlowZ=deagleUVZ.x*0.22+deagleUVZ.y*0.11-deaglePhase;
-        float deagleVeinX=pow(clamp(1.0-abs(sin(deagleFlowX*6.0+sin(deagleUVX.y*0.55+sin(deagleUVX.x*0.31-deaglePhase*0.7)*1.8+deaglePhase*1.6)*2.0)),0.0,1.0),10.0);
-        float deagleVeinY=pow(clamp(1.0-abs(sin(deagleFlowY*6.0+sin(deagleUVY.y*0.55+sin(deagleUVY.x*0.31-deaglePhase*0.7)*1.8+deaglePhase*1.6)*2.0)),0.0,1.0),10.0);
-        float deagleVeinZ=pow(clamp(1.0-abs(sin(deagleFlowZ*6.0+sin(deagleUVZ.y*0.55+sin(deagleUVZ.x*0.31-deaglePhase*0.7)*1.8+deaglePhase*1.6)*2.0)),0.0,1.0),10.0);
-        float deagleGlow=deagleVeinX*deagleBlend.x+deagleVeinY*deagleBlend.y+deagleVeinZ*deagleBlend.z;
-        float deagleHue=0.5+0.5*sin((deagleFlowX*deagleBlend.x+deagleFlowY*deagleBlend.y+deagleFlowZ*deagleBlend.z)*1.5-deaglePhase*0.8);
-        vec3 deagleEnergy=mix(vec3(0.02,0.65,1.0),vec3(0.42,0.05,1.0),deagleHue);
-        totalEmissiveRadiance+=deagleEnergy*(0.18+deagleGlow*1.4)*1.6;
-        }`
-      );
-      status.textContent=activeWeapon==='m4'?'M4 loaded · Arcwave plasma shader active':'Model loaded · Arcwave procedural shader active';
-      scrollShaders.push(shader);
-    };
-    if(activeWeapon==='deagle')mat.customProgramCacheKey=()=> 'deagle-m4-style-integrated-plasma-v1';
-    if(activeWeapon==='m4'){
-      // Integrated into the base material to avoid duplicate-surface depth flicker.
-      mat.onBeforeCompile=(shader)=>{
-        shader.uniforms.m4ArcwaveTime={value:0};
-        shader.uniforms.m4ArcwaveEnabled={value:scrollEnabledInput.checked?1:0};
+    // FBX meshes can use several material slots. Preserve the full array so
+    // each polygon group keeps its own material and UV assignment.
+    const sourceMaterials=Array.isArray(old)?old:[old];
+    const materials=sourceMaterials.map(source=>source&&source.isMaterial?source.clone():new THREE.MeshPhysicalMaterial());
+    for(const mat of materials){
+      // Keep the FBX's original material type and surface settings. The external
+      // colour texture is applied as its albedo map instead of replacing the
+      // whole material with a generic MeshPhysicalMaterial.
+      const mat=old&&old.isMaterial?old.clone():new THREE.MeshPhysicalMaterial();
+      if(color){
+        mat.map=color;
+        if(mat.color)mat.color.set(0xffffff);
+      }
+      if('metalness' in mat)mat.metalness=Number(metalnessInput.value);
+      if('roughness' in mat)mat.roughness=Number(roughnessInput.value);
+      if('envMapIntensity' in mat)mat.envMapIntensity=Number(reflectionStrengthInput.value);
+      if('clearcoat' in mat)mat.clearcoat=Number(clearcoatInput.value);
+      mat.userData.originalMap=mat.map;
+      mat.userData.originalNormal=mat.normalMap||null;
+      mat.userData.originalRoughness=mat.roughnessMap||null;
+      if(activeWeapon==='deagle')mat.onBeforeCompile=(shader)=>{
+        shader.uniforms.arcScrollMap={value:scroll};
+        shader.uniforms.arcScrollTime={value:0};
+        shader.uniforms.arcScrollSpeed={value:Number(scrollSpeedInput.value)};
+        shader.uniforms.arcScrollScale={value:Number(scrollScaleInput.value)};
+        shader.uniforms.arcScrollDirection={value:Number(scrollDirectionInput.value)};
+        shader.uniforms.arcScrollReverse={value:scrollReverseInput.checked?1:0};
+        shader.uniforms.arcScrollEnabled={value:scrollEnabledInput.checked?1:0};
+        shader.uniforms.arcScrollVisibility={value:Number(scrollVisibilityInput.value)};
+        shader.uniforms.arcPulseEnabled={value:pulseEnabledInput.checked?1:0};
+        shader.uniforms.arcPulseStrength={value:Number(pulseStrengthInput.value)};
         shader.vertexShader=shader.vertexShader.replace(
           '#include <common>',
-          `#include <common>
-varying vec3 vM4ArcPosition;
-varying vec3 vM4ArcNormal;`
+          '#include <common>\nvarying vec3 vArcwaveLocalPosition;\nvarying vec3 vArcwaveLocalNormal;'
         ).replace(
           '#include <begin_vertex>',
-          `#include <begin_vertex>
-vM4ArcPosition=position;
-vM4ArcNormal=normal;`
+          '#include <begin_vertex>\nvArcwaveLocalPosition = position;\nvArcwaveLocalNormal = normal;'
         );
         shader.fragmentShader=shader.fragmentShader.replace(
           '#include <common>',
-          `#include <common>
-uniform float m4ArcwaveTime;
-uniform float m4ArcwaveEnabled;
-varying vec3 vM4ArcPosition;
-varying vec3 vM4ArcNormal;
-float m4ArcSat(float x){return clamp(x,0.0,1.0);}
-vec3 m4ElectricPlasma(vec2 uv,float time){
-  float flow=uv.x*0.22+uv.y*0.11-time;
-  float turbulence=sin(uv.y*0.55+sin(uv.x*0.31-time*0.7)*1.8+time*1.6);
-  float wave=sin(flow*6.0+turbulence*2.0);
-  float veins=pow(m4ArcSat(1.0-abs(wave)),10.0);
-  float wisps=0.5+0.5*sin(uv.x*0.9-uv.y*0.45-time*2.2+sin(uv.y*0.7+time)*1.5);
-  float glow=m4ArcSat(veins*1.2+pow(wisps,5.0)*0.35);
-  float hue=0.5+0.5*sin(flow*1.5-time*0.8);
-  vec3 energy=mix(vec3(0.02,0.65,1.0),vec3(0.42,0.05,1.0),hue);
-  return energy*(0.18+glow*1.4);
-}`
+          '#include <common>\nuniform sampler2D arcScrollMap;\nuniform float arcScrollTime;\nuniform float arcScrollSpeed;\nuniform float arcScrollScale;\nuniform float arcScrollDirection;\nuniform float arcScrollReverse;\nuniform float arcScrollEnabled;\nuniform float arcScrollVisibility;\nuniform float arcPulseEnabled;\nuniform float arcPulseStrength;\nvarying vec3 vArcwaveLocalPosition;\nvarying vec3 vArcwaveLocalNormal;'
+        ).replace(
+          '#include <map_fragment>',
+          `#include <map_fragment>
+          float arcEnergyMask = 0.0;
+          if (arcScrollEnabled > 0.5) {
+            // Original COD4 Arcwave: triplanar projection from object position and surface normal.
+            vec3 arcPosition = vArcwaveLocalPosition;
+            float arcTravel = arcScrollTime * arcScrollSpeed * 0.8 * mix(1.0, -1.0, arcScrollReverse);
+            if (arcScrollDirection < 0.5) {
+              arcPosition.z += arcTravel;
+            } else if (arcScrollDirection < 1.5) {
+              arcPosition.x += arcTravel;
+            } else if (arcScrollDirection < 2.5) {
+              arcPosition.y += arcTravel;
+            } else {
+              arcPosition += vec3(arcTravel);
+            }
+            vec3 tpUVS = arcPosition * (arcScrollScale / 40.0);
+            vec3 tpBlend = pow(max(abs(normalize(vArcwaveLocalNormal)) - vec3(0.2), vec3(0.0)), vec3(1.8));
+            tpBlend /= max(tpBlend.x + tpBlend.y + tpBlend.z, 0.00001);
+            vec4 tpSample = tpBlend.x * texture2D(arcScrollMap, tpUVS.yz);
+            tpSample += tpBlend.y * texture2D(arcScrollMap, tpUVS.xz);
+            tpSample += tpBlend.z * texture2D(arcScrollMap, tpUVS.xy);
+            // COD4 uses the base colour texture alpha to blend energy texture and lit weapon colour.
+            float arcEnergyBlend = (1.0 - diffuseColor.a) * arcScrollVisibility;
+            diffuseColor.rgb = mix(diffuseColor.rgb, tpSample.rgb, arcEnergyBlend);
+            arcEnergyMask = max(max(tpSample.r, tpSample.g), tpSample.b) * arcEnergyBlend;
+          }`
         ).replace(
           '#include <emissivemap_fragment>',
           `#include <emissivemap_fragment>
-if (m4ArcwaveEnabled > 0.5) {
-float m4Phase=m4ArcwaveTime*0.8;
-vec3 m4N=normalize(vM4ArcNormal);
-vec3 m4Blend=pow(max(abs(m4N)-vec3(0.25),vec3(0.0)),vec3(1.5));
-m4Blend/=max(m4Blend.x+m4Blend.y+m4Blend.z,0.0001);
-vec3 m4Plasma=m4ElectricPlasma(vM4ArcPosition.yz*32.0,m4Phase)*m4Blend.x
-  +m4ElectricPlasma(vM4ArcPosition.xz*32.0,m4Phase)*m4Blend.y
-  +m4ElectricPlasma(vM4ArcPosition.xy*32.0,m4Phase)*m4Blend.z;
-totalEmissiveRadiance+=m4Plasma*1.6;
-}`
+          if (arcScrollEnabled > 0.5) {
+            totalEmissiveRadiance += vec3(0.0, 0.3, 1.0) * arcEnergyMask * arcScrollVisibility * 3.0;
+          }
+          // Same animated cyan/violet plasma used on the M4, integrated into
+          // the Deagle's existing material to avoid a second-mesh depth conflict.
+          if (arcScrollEnabled > 0.5) {
+          float deaglePhase=arcScrollTime*0.8;
+          vec3 deagleN=normalize(vArcwaveLocalNormal);
+          vec3 deagleBlend=pow(max(abs(deagleN)-vec3(0.25),vec3(0.0)),vec3(1.5));
+          deagleBlend/=max(deagleBlend.x+deagleBlend.y+deagleBlend.z,0.0001);
+          vec3 deaglePos=vArcwaveLocalPosition*32.0;
+          vec2 deagleUVX=deaglePos.yz;
+          vec2 deagleUVY=deaglePos.xz;
+          vec2 deagleUVZ=deaglePos.xy;
+          float deagleFlowX=deagleUVX.x*0.22+deagleUVX.y*0.11-deaglePhase;
+          float deagleFlowY=deagleUVY.x*0.22+deagleUVY.y*0.11-deaglePhase;
+          float deagleFlowZ=deagleUVZ.x*0.22+deagleUVZ.y*0.11-deaglePhase;
+          float deagleVeinX=pow(clamp(1.0-abs(sin(deagleFlowX*6.0+sin(deagleUVX.y*0.55+sin(deagleUVX.x*0.31-deaglePhase*0.7)*1.8+deaglePhase*1.6)*2.0)),0.0,1.0),10.0);
+          float deagleVeinY=pow(clamp(1.0-abs(sin(deagleFlowY*6.0+sin(deagleUVY.y*0.55+sin(deagleUVY.x*0.31-deaglePhase*0.7)*1.8+deaglePhase*1.6)*2.0)),0.0,1.0),10.0);
+          float deagleVeinZ=pow(clamp(1.0-abs(sin(deagleFlowZ*6.0+sin(deagleUVZ.y*0.55+sin(deagleUVZ.x*0.31-deaglePhase*0.7)*1.8+deaglePhase*1.6)*2.0)),0.0,1.0),10.0);
+          float deagleGlow=deagleVeinX*deagleBlend.x+deagleVeinY*deagleBlend.y+deagleVeinZ*deagleBlend.z;
+          float deagleHue=0.5+0.5*sin((deagleFlowX*deagleBlend.x+deagleFlowY*deagleBlend.y+deagleFlowZ*deagleBlend.z)*1.5-deaglePhase*0.8);
+          vec3 deagleEnergy=mix(vec3(0.02,0.65,1.0),vec3(0.42,0.05,1.0),deagleHue);
+          totalEmissiveRadiance+=deagleEnergy*(0.18+deagleGlow*1.4)*1.6;
+          }`
         );
+        status.textContent=activeWeapon==='m4'?'M4 loaded · Arcwave plasma shader active':'Model loaded · Arcwave procedural shader active';
         scrollShaders.push(shader);
       };
-      mat.customProgramCacheKey=()=> 'm4-arcwave-integrated-v3';
+      if(activeWeapon==='deagle')mat.customProgramCacheKey=()=> 'deagle-m4-style-integrated-plasma-v1';
+      if(activeWeapon==='m4'){
+        // Integrated into the base material to avoid duplicate-surface depth flicker.
+        mat.onBeforeCompile=(shader)=>{
+          shader.uniforms.m4ArcwaveTime={value:0};
+          shader.uniforms.m4ArcwaveEnabled={value:scrollEnabledInput.checked?1:0};
+          shader.vertexShader=shader.vertexShader.replace(
+            '#include <common>',
+            `#include <common>
+  varying vec3 vM4ArcPosition;
+  varying vec3 vM4ArcNormal;`
+          ).replace(
+            '#include <begin_vertex>',
+            `#include <begin_vertex>
+  vM4ArcPosition=position;
+  vM4ArcNormal=normal;`
+          );
+          shader.fragmentShader=shader.fragmentShader.replace(
+            '#include <common>',
+            `#include <common>
+  uniform float m4ArcwaveTime;
+  uniform float m4ArcwaveEnabled;
+  varying vec3 vM4ArcPosition;
+  varying vec3 vM4ArcNormal;
+  float m4ArcSat(float x){return clamp(x,0.0,1.0);}
+  vec3 m4ElectricPlasma(vec2 uv,float time){
+    float flow=uv.x*0.22+uv.y*0.11-time;
+    float turbulence=sin(uv.y*0.55+sin(uv.x*0.31-time*0.7)*1.8+time*1.6);
+    float wave=sin(flow*6.0+turbulence*2.0);
+    float veins=pow(m4ArcSat(1.0-abs(wave)),10.0);
+    float wisps=0.5+0.5*sin(uv.x*0.9-uv.y*0.45-time*2.2+sin(uv.y*0.7+time)*1.5);
+    float glow=m4ArcSat(veins*1.2+pow(wisps,5.0)*0.35);
+    float hue=0.5+0.5*sin(flow*1.5-time*0.8);
+    vec3 energy=mix(vec3(0.02,0.65,1.0),vec3(0.42,0.05,1.0),hue);
+    return energy*(0.18+glow*1.4);
+  }`
+          ).replace(
+            '#include <emissivemap_fragment>',
+            `#include <emissivemap_fragment>
+  if (m4ArcwaveEnabled > 0.5) {
+  float m4Phase=m4ArcwaveTime*0.8;
+  vec3 m4N=normalize(vM4ArcNormal);
+  vec3 m4Blend=pow(max(abs(m4N)-vec3(0.25),vec3(0.0)),vec3(1.5));
+  m4Blend/=max(m4Blend.x+m4Blend.y+m4Blend.z,0.0001);
+  vec3 m4Plasma=m4ElectricPlasma(vM4ArcPosition.yz*32.0,m4Phase)*m4Blend.x
+    +m4ElectricPlasma(vM4ArcPosition.xz*32.0,m4Phase)*m4Blend.y
+    +m4ElectricPlasma(vM4ArcPosition.xy*32.0,m4Phase)*m4Blend.z;
+  totalEmissiveRadiance+=m4Plasma*1.6;
+  }`
+          );
+          scrollShaders.push(shader);
+        };
+        mat.customProgramCacheKey=()=> 'm4-arcwave-integrated-v3';
+      }
+
     }
-    obj.material=mat;
-    modelMaterials.push(mat);
+    obj.material=Array.isArray(old)?materials:materials[0];
     // Dedicated triangle-wireframe overlay. WireframeGeometry + LineSegments is
     // more reliable across browsers than barycentric derivatives on a cloned mesh.
     const wireGeometry=new THREE.WireframeGeometry(geometry);
